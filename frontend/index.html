@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HelpDesk KB — Управление базой знаний с гибридным поиском</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for Moderator Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Marked for Markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .prose code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 0.875rem; color: #0f172a; }
+    .prose pre code { background: transparent; padding: 0; color: #e2e8f0; }
+    .prose pre { background: #0f172a; padding: 12px 16px; border-radius: 8px; overflow-x: auto; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- НАВБАР -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-100">
+          <i data-lucide="layers" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <span class="font-bold text-lg text-slate-900 tracking-tight">HelpDesk <span class="text-indigo-600">KnowledgeBase</span></span>
+          <span class="hidden sm:inline-block ml-2 px-2 py-0.5 text-xs font-semibold bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200">Гибридный поиск + NLP</span>
+        </div>
+      </div>
+
+      <!-- Вкладки навигации -->
+      <nav class="flex space-x-1 sm:space-x-2">
+        <button onclick="switchTab('search')" id="tab-btn-search" class="nav-tab px-3 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-1.5 bg-indigo-50 text-indigo-700">
+          <i data-lucide="search" class="w-4 h-4"></i>
+          <span>Поиск</span>
+        </button>
+        <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="nav-tab px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition flex items-center space-x-1.5">
+          <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+          <span>Аналитика</span>
+        </button>
+        <button onclick="switchTab('clusters')" id="tab-btn-clusters" class="nav-tab px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition flex items-center space-x-1.5">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          <span>Кластеры пробелов</span>
+          <span id="nav-clusters-count" class="ml-1 px-1.5 py-0.2 text-xs bg-amber-100 text-amber-800 rounded-full font-bold">0</span>
+        </button>
+        <button onclick="switchTab('articles')" id="tab-btn-articles" class="nav-tab px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition flex items-center space-x-1.5">
+          <i data-lucide="book-open" class="w-4 h-4"></i>
+          <span>Статьи</span>
+        </button>
+      </nav>
+
+      <!-- Роль пользователя -->
+      <div class="flex items-center space-x-3">
+        <div class="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200">
+          <span class="text-xs text-slate-500 mr-2 ml-1 hidden sm:inline">Роль:</span>
+          <select id="userRoleSelect" onchange="changeUserRole(this.value)" class="text-xs font-semibold bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 focus:outline-none">
+            <option value="moderator">Модератор</option>
+            <option value="operator">Оператор ТП</option>
+            <option value="admin">Администратор</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ОСНОВНОЙ КОНТЕНТ -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ==================== ВКЛАДКА 1: ПОИСК (РАБОЧЕЕ МЕСТО ОПЕРАТОРА) ==================== -->
+    <section id="tab-search" class="space-y-6">
+      
+      <!-- Поисковый блок -->
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
+        <div class="flex flex-col md:flex-row gap-3">
+          <div class="relative flex-1">
+            <i data-lucide="search" class="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400"></i>
+            <input 
+              type="text" 
+              id="searchInput" 
+              placeholder="Введите вопрос пользователя или текст ошибки (например: 'как настроить vpn', 'docker wsl error', 'сброс пароля active directory')..." 
+              class="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-base transition"
+              onkeydown="if(event.key === 'Enter') executeSearch()"
+            >
+            <button onclick="document.getElementById('searchInput').value=''; document.getElementById('searchInput').focus();" class="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <button onclick="executeSearch()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition shadow-md shadow-indigo-100 flex items-center justify-center space-x-2">
+            <i data-lucide="search" class="w-4 h-4"></i>
+            <span>Найти</span>
+          </button>
+        </div>
+
+        <!-- Настройки поиска: Режим и Фильтры -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 text-sm">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">Алгоритм:</span>
+            <div class="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
+              <button onclick="setSearchMode('hybrid')" id="mode-hybrid" class="px-3 py-1 text-xs font-medium rounded-md bg-white text-indigo-700 shadow-sm border border-slate-200/60">
+                ⚡ Гибридный (RRF)
+              </button>
+              <button onclick="setSearchMode('text')" id="mode-text" class="px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900">
+                📝 Текстовый (BM25)
+              </button>
+              <button onclick="setSearchMode('semantic')" id="mode-semantic" class="px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900">
+                🧠 Семантический (Vector)
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-1.5">
+              <span class="text-xs text-slate-500">Язык:</span>
+              <select id="searchLanguage" onchange="executeSearch()" class="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-700 focus:outline-none">
+                <option value="">Любой</option>
+                <option value="ru">Русский (RU)</option>
+                <option value="en">English (EN)</option>
+              </select>
+            </div>
+
+            <div class="flex items-center space-x-1.5">
+              <span class="text-xs text-slate-500">Категория:</span>
+              <select id="searchCategory" onchange="executeSearch()" class="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-700 focus:outline-none max-w-[180px] truncate">
+                <option value="">Все категории</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Результаты поиска -->
+      <div id="searchResultsContainer" class="space-y-4">
+        <div id="searchMeta" class="hidden flex items-center justify-between text-xs text-slate-500 px-1">
+          <span id="resultsCountText"></span>
+          <span id="searchMetricsText"></span>
+        </div>
+
+        <div id="resultsList" class="space-y-3">
+          <!-- Заполнится динамически через JS -->
+          <div class="bg-white rounded-2xl p-10 text-center border border-slate-200 text-slate-400">
+            <i data-lucide="file-question" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i>
+            <p class="font-medium text-slate-600">Начните поиск решений</p>
+            <p class="text-xs text-slate-400 mt-1">Система использует мультиязычный гибридный алгоритм RRF (Reciprocal Rank Fusion).</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== ВКЛАДКА 2: АНАЛИТИКА МОДЕРАТОРА ==================== -->
+    <section id="tab-dashboard" class="hidden space-y-6">
+      <!-- KPI Карточки -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+          <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <i data-lucide="book" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Всего статей</div>
+            <div id="kpi-articles" class="text-2xl font-bold text-slate-900 mt-0.5">--</div>
+            <div class="text-xs text-emerald-600 font-medium">Активная база знаний</div>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+          <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+            <i data-lucide="activity" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Поисковых запросов</div>
+            <div id="kpi-searches" class="text-2xl font-bold text-slate-900 mt-0.5">--</div>
+            <div class="text-xs text-slate-400">За всю историю</div>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+          <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+            <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Поисковые пробелы</div>
+            <div id="kpi-gaps" class="text-2xl font-bold text-rose-600 mt-0.5">--</div>
+            <div id="kpi-gap-rate" class="text-xs text-rose-500 font-medium">0% от всех поисков</div>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+          <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+            <i data-lucide="sparkles" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Активные темы пробелов</div>
+            <div id="kpi-clusters" class="text-2xl font-bold text-amber-700 mt-0.5">--</div>
+            <div class="text-xs text-slate-500">Требуют написания статей</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Графики -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- График тренда поисков и пробелов -->
+        <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold text-slate-900 flex items-center space-x-2">
+              <i data-lucide="trending-up" class="w-4 h-4 text-indigo-600"></i>
+              <span>Динамика поисковых запросов и пробелов (7 дней)</span>
+            </h3>
+            <span class="text-xs text-slate-400">Сравнение объема и неудачных поисков</span>
+          </div>
+          <div class="h-64">
+            <canvas id="searchTrendChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Топ частых запросов -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <h3 class="font-semibold text-slate-900 flex items-center space-x-2">
+            <i data-lucide="list-ordered" class="w-4 h-4 text-indigo-600"></i>
+            <span>Популярные запросы</span>
+          </h3>
+          <div id="topQueriesList" class="space-y-2 text-sm max-h-64 overflow-y-auto">
+            <!-- Заполнится динамически -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Таблица популярных статей и журнал пробелов -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <h3 class="font-semibold text-slate-900 flex items-center space-x-2">
+            <i data-lucide="award" class="w-4 h-4 text-indigo-600"></i>
+            <span>Эффективность статей базы знаний</span>
+          </h3>
+          <div id="topArticlesList" class="space-y-2 text-sm">
+            <!-- Заполнится динамически -->
+          </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold text-slate-900 flex items-center space-x-2">
+              <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600"></i>
+              <span>Последние неудачные запросы (Пробелы)</span>
+            </h3>
+            <button onclick="switchTab('clusters')" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold">
+              В кластеры →
+            </button>
+          </div>
+          <div id="recentGapsList" class="space-y-2 text-sm max-h-72 overflow-y-auto">
+            <!-- Заполнится динамически -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== ВКЛАДКА 3: КЛАСТЕРИЗАЦИЯ ПРОБЕЛОВ ==================== -->
+    <section id="tab-clusters" class="hidden space-y-6">
+      
+      <!-- Панель управления кластеризацией -->
+      <div class="bg-gradient-to-r from-indigo-900 to-indigo-700 text-white p-6 rounded-2xl shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold tracking-tight">Автоматическая кластеризация пробелов знаний</h2>
+          <p class="text-indigo-200 text-xs sm:text-sm mt-1 max-w-2xl">
+            NLP-модуль группирует неудачные запросы (с 0 результатами и отметкой «Не помогло») в смысловые темы. Это подсказывает модераторам, на какие темы необходимо написать новые статьи.
+          </p>
+        </div>
+
+        <button onclick="runClustering()" id="btnRunClustering" class="px-5 py-3 bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold rounded-xl transition shadow-lg flex items-center space-x-2 whitespace-nowrap">
+          <i data-lucide="cpu" class="w-5 h-5"></i>
+          <span>Запустить кластеризацию</span>
+        </button>
+      </div>
+
+      <!-- Информационный баннер результатов алгоритма -->
+      <div id="clusteringMetricsBanner" class="hidden p-4 rounded-xl border flex items-center justify-between text-xs">
+        <div class="flex items-center space-x-3">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          <span id="clusteringBannerText" class="font-medium"></span>
+        </div>
+        <div id="clusteringSilhouetteBadge" class="px-2.5 py-1 bg-white rounded-md font-semibold border shadow-sm"></div>
+      </div>
+
+      <!-- Карточки выявленных тем (Кластеров) -->
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-bold text-slate-900 text-lg">Выявленные темы для написания статей</h3>
+          <div class="flex items-center space-x-2 text-xs">
+            <span class="text-slate-500">Фильтр:</span>
+            <select id="clusterFilter" onchange="loadClusters()" class="border border-slate-200 rounded-lg px-2 py-1 bg-white">
+              <option value="">Все статусы</option>
+              <option value="new">Новые</option>
+              <option value="in_progress">В работе</option>
+              <option value="resolved">Решенные</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="clustersGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Карточки кластеров генерируются динамически -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== ВКЛАДКА 4: КАТАЛОГ СТАТЕЙ ==================== -->
+    <section id="tab-articles" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Управление статьями базы знаний</h2>
+          <p class="text-xs sm:text-sm text-slate-500">Просмотр, редактирование и создание новых решений службы техподдержки.</p>
+        </div>
+
+        <button onclick="openArticleModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition text-sm flex items-center space-x-2 shadow-sm">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Создать статью</span>
+        </button>
+      </div>
+
+      <!-- Таблица статей -->
+      <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+        <div class="p-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="flex items-center space-x-2">
+            <input type="text" id="articleFilterInput" onkeyup="filterArticlesTable()" placeholder="Быстрый поиск по заголовку..." class="px-3 py-1.5 border border-slate-200 rounded-lg bg-white focus:outline-none w-64">
+          </div>
+          <span id="articlesCountBadge" class="text-slate-500 font-medium"></span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-600" id="articlesTable">
+            <thead class="bg-slate-100 text-xs uppercase font-semibold text-slate-700">
+              <tr>
+                <th class="px-4 py-3">ID</th>
+                <th class="px-4 py-3">Заголовок</th>
+                <th class="px-4 py-3">Категория</th>
+                <th class="px-4 py-3">Язык</th>
+                <th class="px-4 py-3 text-center">Просмотры</th>
+                <th class="px-4 py-3 text-center">Рейтинг</th>
+                <th class="px-4 py-3 text-right">Действия</th>
+              </tr>
+            </thead>
+            <tbody id="articlesTableBody" class="divide-y divide-slate-100">
+              <!-- Заполнится динамически -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: ПРОСМОТР СТАТЬИ И ОБРАТНАЯ СВЯЗЬ ==================== -->
+  <div id="articleViewModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200">
+      
+      <!-- Заголовок модалки -->
+      <div class="p-6 border-b border-slate-100 flex items-start justify-between">
+        <div>
+          <div class="flex items-center space-x-2 text-xs text-slate-500 mb-1">
+            <span id="modalArticleCategory" class="px-2 py-0.5 bg-slate-100 rounded-md font-medium text-slate-700"></span>
+            <span id="modalArticleLang" class="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded font-semibold uppercase"></span>
+          </div>
+          <h2 id="modalArticleTitle" class="text-xl font-bold text-slate-900 leading-snug"></h2>
+        </div>
+        <button onclick="closeArticleViewModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Содержимое статьи -->
+      <div class="p-6 overflow-y-auto flex-1 prose prose-slate max-w-none text-sm" id="modalArticleContent">
+      </div>
+
+      <!-- Блок оценки решения оператором (КЛЮЧЕВОЙ ДЛЯ ВЫЯВЛЕНИЯ ПРОБЕЛОВ) -->
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+        <div class="text-slate-500">
+          <span class="font-medium text-slate-700">Оценка решения:</span> помогла ли эта статья решить обращение?
+        </div>
+        
+        <div class="flex items-center space-x-2" id="feedbackButtonsGroup">
+          <button onclick="submitArticleFeedback(true)" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition flex items-center space-x-1.5">
+            <i data-lucide="thumbs-up" class="w-3.5 h-3.5"></i>
+            <span>Помогло</span>
+          </button>
+          
+          <button onclick="submitArticleFeedback(false)" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-lg transition flex items-center space-x-1.5">
+            <i data-lucide="thumbs-down" class="w-3.5 h-3.5"></i>
+            <span>Ответ не помог</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: СОЗДАНИЕ / РЕДАКТИРОВАНИЕ СТАТЬИ ==================== -->
+  <div id="articleEditModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200">
+      
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+        <h3 id="editModalHeader" class="text-lg font-bold text-slate-900">Создание статьи базы знаний</h3>
+        <button onclick="closeArticleEditModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="articleForm" onsubmit="saveArticle(event)" class="p-6 overflow-y-auto space-y-4 flex-1 text-sm">
+        <input type="hidden" id="editArticleId">
+        <input type="hidden" id="fromClusterId">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Заголовок статьи *</label>
+          <input type="text" id="editTitle" required placeholder="Например: Устранение ошибки Docker Desktop в WSL2..." class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Категория</label>
+            <select id="editCategory" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Язык</label>
+            <select id="editLanguage" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <option value="ru">Русский (ru)</option>
+              <option value="en">English (en)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Краткое описание (Summary)</label>
+          <input type="text" id="editSummary" placeholder="Короткая суть решения в 1 предложение..." class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Теги (через запятую)</label>
+          <input type="text" id="editTags" placeholder="docker, wsl2, ошибка, daemon" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Содержимое статьи (поддерживается Markdown) *</label>
+          <textarea id="editContent" rows="8" required placeholder="### Инструкция по решению..." class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono text-xs"></textarea>
+        </div>
+
+        <div class="pt-2 flex justify-end space-x-2">
+          <button type="button" onclick="closeArticleEditModal()" class="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 font-medium">Отмена</button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-sm">Сохранить статью</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Футер -->
+  <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400">
+    Выпускная квалификационная работа • Черемисин А. А. • Информационная система управления базой знаний с гибридным поиском и кластеризацией пробелов
+  </footer>
+
+  <!-- Основной JS скрипт приложения -->
+  <script src="/app.js"></script>
+</body>
+</html>

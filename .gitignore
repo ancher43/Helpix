@@ -1,0 +1,39 @@
+# Python virtual environment
+venv/
+.venv/
+env/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment variables & secrets (keep .env.example)
+.env
+backend/.env
+
+# Local SQLite fallback databases & logs
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# Testing & caches
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# IDE & Editor folders
+.vscode/
+.idea/
+*.suo
+*.user
+*.sln.docstates
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
