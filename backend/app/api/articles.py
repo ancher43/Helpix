@@ -2,6 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func
+from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.models.user import User, UserRole
 from app.models.article import Article, Category
@@ -46,9 +47,9 @@ async def create_category(
 @router.get("", response_model=List[ArticleListItem])
 async def list_articles(
     category_id: Optional[int] = None,
-    language: Optional[str] = None,
+    sort_by: Optional[str] = Query("created_at"),
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(200, ge=1, le=1000),
     db: AsyncSession = Depends(get_db)
 ):
     stmt = select(
@@ -58,10 +59,13 @@ async def list_articles(
     
     if category_id:
         stmt = stmt.where(Article.category_id == category_id)
-    if language:
-        stmt = stmt.where(Article.language == language)
         
-    stmt = stmt.order_by(Article.created_at.desc()).offset(skip).limit(limit)
+    if sort_by in ("popular", "views"):
+        stmt = stmt.order_by(Article.views_count.desc(), Article.helpful_count.desc())
+    else:
+        stmt = stmt.order_by(Article.created_at.desc())
+        
+    stmt = stmt.offset(skip).limit(limit)
     result = await db.execute(stmt)
     
     items = []
@@ -73,7 +77,6 @@ async def list_articles(
             title=art.title,
             summary=art.summary,
             tags=art.tags,
-            language=art.language,
             category_name=cat_name,
             views_count=art.views_count,
             helpful_count=art.helpful_count,
@@ -84,7 +87,7 @@ async def list_articles(
 
 @router.get("/{article_id}", response_model=ArticleResponse)
 async def get_article(article_id: int, db: AsyncSession = Depends(get_db)):
-    stmt = select(Article).where(Article.id == article_id)
+    stmt = select(Article).options(selectinload(Article.category)).where(Article.id == article_id)
     article = (await db.execute(stmt)).scalar_one_or_none()
     if not article:
         raise HTTPException(status_code=404, detail="Статья не найдена")
@@ -92,7 +95,9 @@ async def get_article(article_id: int, db: AsyncSession = Depends(get_db)):
     # Increment view counter
     article.views_count += 1
     await db.commit()
-    await db.refresh(article)
+    
+    stmt = select(Article).options(selectinload(Article.category)).where(Article.id == article_id)
+    article = (await db.execute(stmt)).scalar_one()
     return article
 
 @router.post("", response_model=ArticleResponse)
@@ -110,7 +115,6 @@ async def create_article(
         content=article_in.content,
         summary=article_in.summary,
         tags=article_in.tags,
-        language=article_in.language,
         category_id=article_in.category_id,
         created_by_id=user.id,
         is_published=article_in.is_published,
@@ -118,8 +122,10 @@ async def create_article(
     )
     db.add(article)
     await db.commit()
-    await db.refresh(article)
-    return article
+    
+    stmt = select(Article).options(selectinload(Article.category)).where(Article.id == article.id)
+    created_article = (await db.execute(stmt)).scalar_one()
+    return created_article
 
 @router.put("/{article_id}", response_model=ArticleResponse)
 async def update_article(
@@ -128,7 +134,7 @@ async def update_article(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role([UserRole.MODERATOR, UserRole.ADMIN]))
 ):
-    stmt = select(Article).where(Article.id == article_id)
+    stmt = select(Article).options(selectinload(Article.category)).where(Article.id == article_id)
     article = (await db.execute(stmt)).scalar_one_or_none()
     if not article:
         raise HTTPException(status_code=404, detail="Статья не найдена")
@@ -143,8 +149,9 @@ async def update_article(
         article.embedding = embedding_service.encode(text_to_embed, normalize=True).tolist()
 
     await db.commit()
-    await db.refresh(article)
-    return article
+    stmt = select(Article).options(selectinload(Article.category)).where(Article.id == article.id)
+    updated_article = (await db.execute(stmt)).scalar_one()
+    return updated_article
 
 @router.delete("/{article_id}")
 async def delete_article(

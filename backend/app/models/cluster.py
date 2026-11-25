@@ -21,15 +21,17 @@ class SearchGapCluster(Base):
     sample_queries = Column(JSON, nullable=True)  # List of representative query strings
     keywords = Column(JSON, nullable=True)        # Extracted TF-IDF / key terms
     
-    # 2D coordinates for visual representation in moderator dashboard
+    # 3D coordinates for visual representation in moderator dashboard
     pca_x = Column(Float, nullable=True)
     pca_y = Column(Float, nullable=True)
+    pca_z = Column(Float, nullable=True)
     
     status = Column(Enum(ClusterStatus), default=ClusterStatus.NEW, nullable=False)
     
     # If a new article was created to resolve this gap
     created_article_id = Column(Integer, ForeignKey("articles.id", ondelete="SET NULL"), nullable=True)
     
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

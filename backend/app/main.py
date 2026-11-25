@@ -81,7 +81,7 @@ app.include_router(stats.router, prefix=settings.API_V1_STR)
 async def health_check():
     return {"status": "ok", "version": settings.VERSION}
 
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pathlib import Path
 
 # Resolve root D:\VKR directory (3 levels up from app/main.py)
@@ -90,19 +90,36 @@ frontend_dir = ROOT_DIR / "frontend"
 frontend_dist = frontend_dir / "dist"
 target_static = frontend_dist if frontend_dist.exists() else frontend_dir
 
+NO_CACHE_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0"
+}
+
 @app.get("/", include_in_schema=False)
 async def serve_index():
     index_file = target_static / "index.html"
     if index_file.exists():
-        return FileResponse(str(index_file))
+        return FileResponse(str(index_file), headers=NO_CACHE_HEADERS)
     return {"error": "Frontend index.html not found", "looked_in": str(index_file)}
 
 @app.get("/app.js", include_in_schema=False)
 async def serve_js():
     js_file = target_static / "app.js"
     if js_file.exists():
-        return FileResponse(str(js_file), media_type="application/javascript")
+        return FileResponse(str(js_file), media_type="application/javascript", headers=NO_CACHE_HEADERS)
     return {"error": "Frontend app.js not found", "looked_in": str(js_file)}
+
+@app.get("/favicon.ico", include_in_schema=False)
+@app.get("/favicon.svg", include_in_schema=False)
+async def serve_favicon():
+    svg_file = target_static / "favicon.svg"
+    if svg_file.exists():
+        return FileResponse(str(svg_file), media_type="image/svg+xml")
+    ico_file = target_static / "favicon.ico"
+    if ico_file.exists():
+        return FileResponse(str(ico_file), media_type="image/x-icon")
+    return Response(status_code=204)
 
 if target_static.exists():
     app.mount("/static", StaticFiles(directory=str(target_static)), name="static")

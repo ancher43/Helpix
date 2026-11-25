@@ -4,10 +4,13 @@ import sys
 import random
 from datetime import datetime, timedelta, timezone
 
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 # Add parent directory to path so app modules can be imported
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from app.core.database import Base
 from app.models.user import User, UserRole
 from app.models.article import Category, Article
@@ -16,310 +19,216 @@ from app.models.cluster import SearchGapCluster
 from app.core.security import get_password_hash
 from app.services.embedding import embedding_service
 
-# Predefined categories
+# ==============================================================================
+# ТЕМАТИКА: СЛУЖБА ТЕХНИЧЕСКОЙ ПОДДЕРЖКИ ТЕЛЕКОММУНИКАЦИОННОЙ КОМПАНИИ (ИНТЕРНЕТ-ПРОВАЙДЕРА)
+# ==============================================================================
+
 CATEGORIES_DATA = [
-    {"name": "Сетевые подключения и VPN", "slug": "network-vpn", "description": "Настройка корпоративного VPN, Wi-Fi, DNS, прокси и маршрутизации."},
-    {"name": "Учётные записи и Доступ", "slug": "auth-access", "description": "Active Directory, сброс паролей, 2FA, права доступа и роли."},
-    {"name": "Рабочие станции и ПО", "slug": "workstations-software", "description": "Операционные системы Windows/Linux, офисные пакеты, корпоративный софт."},
-    {"name": "Периферия и Оргтехника", "slug": "hardware-printers", "description": "Сетевые принтеры, МФУ, сканеры, мониторы, гарнитуры."},
-    {"name": "Базы данных и Серверы", "slug": "servers-databases", "description": "PostgreSQL, Linux-серверы, резервное копирование, права в СУБД."}
-]
-
-ARTICLES_DATA = [
-    # Network & VPN (RU)
     {
-        "title": "Настройка подключения к корпоративному VPN (OpenVPN/WireGuard)",
-        "summary": "Инструкция по установке конфигурационного файла и первому подключению к офисной сети.",
-        "category_slug": "network-vpn",
-        "language": "ru",
-        "tags": "vpn, openvpn, wireguard, сеть, удаленка, подключение",
-        "content": """### Инструкция по настройке VPN
-1. Скачайте официальный клиент OpenVPN Connect или WireGuard с корпоративного портала.
-2. Получите конфигурационный файл (.ovpn или .conf) у вашего системного администратора.
-3. Импортируйте профиль в программу.
-4. Введите учетные данные домена (логин без @domain и корпоративный пароль).
-5. При включенной двухфакторной аутентификации введите код из приложения Authenticator.
-6. В случае ошибки 'TLS handshake failed' проверьте дату и время на компьютере."""
+        "name": "ШПД и Абонентские линии",
+        "slug": "broadband-access",
+        "description": "Техподдержка широкополосного доступа: витая пара, оптические терминалы GPON/ONT, протоколы PPPoE/IPoE и ошибки ОС."
     },
     {
-        "title": "Устранение ошибки 'DNS_PROBE_FINISHED_NO_INTERNET' при работе через корпоративный прокси",
-        "summary": "Пошаговый чек-лист решения сетевых сбоев разрешения доменных имен.",
-        "category_slug": "network-vpn",
-        "language": "ru",
-        "tags": "dns, сеть, интернет, прокси, ipconfig, flushdns",
-        "content": """### Решение проблемы с DNS:
-1. Откройте командную строку (cmd) от имени администратора.
-2. Выполните команду очистки кэша DNS:
-   `ipconfig /flushdns`
-3. Сбросьте сетевой стек:
-   `netsh winsock reset`
-4. Проверьте адрес корпоративного DNS-сервера в свойствах сетевого адаптера (должен стоять 10.0.0.2 или авто).
-5. Перезагрузите сетевой адаптер."""
-    },
-    # Network & VPN (EN)
-    {
-        "title": "Corporate Wi-Fi Certificate Installation and Troubleshooting",
-        "summary": "How to install the enterprise root CA certificate to access the secure 802.1X corporate Wi-Fi.",
-        "category_slug": "network-vpn",
-        "language": "en",
-        "tags": "wifi, network, certificate, 802.1x, ssl, wpa2-enterprise",
-        "content": """### Wi-Fi Configuration Guide:
-1. Connect to the temporary 'Guest-Onboarding' network.
-2. Download the corporate root certificate 'CorpRootCA.crt'.
-3. Double-click the certificate, click 'Install Certificate', select 'Local Machine'.
-4. Place it in 'Trusted Root Certification Authorities'.
-5. Now select the 'Corp-Secure' Wi-Fi, enter your domain credentials and accept the server certificate."""
-    },
-
-    # Auth & Access (RU)
-    {
-        "title": "Самостоятельный сброс пароля доменной учетной записи через SSPR",
-        "summary": "Порядок действий при блокировке пароля Active Directory или истечении срока его действия.",
-        "category_slug": "auth-access",
-        "language": "ru",
-        "tags": "пароль, active directory, sspr, блокировка, доступ, учетка",
-        "content": """### Инструкция по сбросу пароля:
-1. Перейдите на портал самообслуживания https://password.corp.local.
-2. Введите ваш корпоративный логин (имя пользователя).
-3. Подтвердите личность через SMS-код или звонок на привязанный рабочий телефон.
-4. Задайте новый пароль (минимум 12 символов, включая заглавные буквы, цифры и спецсимволы).
-5. Обратите внимание: пароль не должен совпадать с предыдущими 5 паролями.
-6. После смены пароля обновите учетные данные в Outlook и Teams."""
+        "name": "Абонентское оборудование и Wi-Fi",
+        "slug": "cpe-routers",
+        "description": "Настройка и диагностика домашних Wi-Fi роутеров (Keenetic, TP-Link, MikroTik, Eltex), частоты 2.4/5 ГГц, MTU и режим Bridge."
     },
     {
-        "title": "Настройка двухфакторной аутентификации (2FA) через мобильное приложение",
-        "summary": "Привязка корпоративного аккаунта к Google Authenticator или Microsoft Authenticator.",
-        "category_slug": "auth-access",
-        "language": "ru",
-        "tags": "2fa, mfa, токен, аутентификация, безопасность, authenticator",
-        "content": """### Настройка 2FA:
-1. Установите приложение Microsoft Authenticator или Google Authenticator на смартфон.
-2. Зайдите в личный кабинет сотрудника на странице https://auth.corp.local/setup.
-3. Отсканируйте отобразившийся QR-код камерой приложения.
-4. Введите 6-значный одноразовый код проверки.
-5. Обязательно сохраните резервные коды восстановления в надежном месте."""
-    },
-    # Auth & Access (EN)
-    {
-        "title": "How to Request Temporary Privileged Access via PAM Portal",
-        "summary": "Standard procedure for engineers to obtain temporary elevated administrator rights.",
-        "category_slug": "auth-access",
-        "language": "en",
-        "tags": "pam, access, permissions, admin, privilege, cyberark",
-        "content": """### Requesting Elevated Rights:
-1. Open the PAM portal at https://pam.corp.local.
-2. Select target server/system and required role.
-3. Provide valid Jira ticket ID and business justification.
-4. Once manager approves, check out the one-time session credentials.
-5. Max session duration is 4 hours, all actions are audited."""
-    },
-
-    # Workstations & Software (RU)
-    {
-        "title": "Очистка кэша Microsoft Teams при зависании и сбоях звонков",
-        "summary": "Инструкция по полному сбросу временных файлов Teams на Windows 10/11.",
-        "category_slug": "workstations-software",
-        "language": "ru",
-        "tags": "teams, звонки, кэш, зависание, глюк, microsoft",
-        "content": """### Сброс кэша Teams:
-1. Закройте Teams (кликните правой кнопкой по значку в трее -> Выход).
-2. Нажмите Win + R, введите:
-   `%appdata%\\Microsoft\\Teams`
-3. Удалите содержимое папок: `application cache`, `blob_storage`, `Cache`, `databases`, `GPUCache`, `IndexedDB`.
-4. Перезапустите Teams и выполните повторный вход."""
+        "name": "Интерактивное ТВ и IPTV",
+        "slug": "iptv-media",
+        "description": "Телевещание, мультикаст-потоки IGMP Snooping, настройка ТВ-приставок (STB / Android TV), портал телевидения."
     },
     {
-        "title": "Исправление ошибки запуска Outlook 'Не удается открыть набор папок'",
-        "summary": "Восстановление поврежденного профиля почты и файла данных .ost.",
-        "category_slug": "workstations-software",
-        "language": "ru",
-        "tags": "outlook, почта, ost, ошибка, сбой, папки, office",
-        "content": """### Восстановление профиля Outlook:
-1. Закройте Outlook.
-2. Откройте 'Панель управления' -> 'Mail (Microsoft Outlook)'.
-3. Нажмите 'Показать профили' -> 'Добавить'.
-4. Введите имя нового профиля и следуйте мастеру автоматической настройки учетной записи.
-5. Установите созданный профиль в качестве профиля по умолчанию.
-6. При повреждении файла .ost его можно удалить из `%localappdata%\\Microsoft\\Outlook`, он скачается заново с Exchange."""
+        "name": "IP-телефония и ВАТС",
+        "slug": "voip-telephony",
+        "description": "Протокол SIP, регистрация IP-телефонов и голосовых шлюзов, односторонняя слышимость (RTP/SIP ALG), Виртуальная АТС."
     },
     {
-        "title": "Установка и лицензирование корпоративного антивируса Kaspersky / Dr.Web",
-        "summary": "Порядок развертывания антивирусного агента через централизованную консоль.",
-        "category_slug": "workstations-software",
-        "language": "ru",
-        "tags": "антивирус, kaspersky, drweb, безопасность, лицензия",
-        "content": """### Установка антивируса:
-1. Скачайте сетевой установщик из каталога общего доступа `\\\\corp-fs\\soft\\antivirus`.
-2. Запустите инсталлятор с правами администратора.
-3. Программа автоматически подключится к Security Center (10.0.1.50) и подтянет лицензионный ключ.
-4. Дождитесь завершения первоначального сканирования системы."""
-    },
-    # Workstations & Software (EN)
-    {
-        "title": "Resolving Windows Blue Screen of Death (BSOD) Driver Verifier Errors",
-        "summary": "Diagnostic guide to analyze minidump files and locate faulty hardware drivers.",
-        "category_slug": "workstations-software",
-        "language": "en",
-        "tags": "bsod, crash, windows, minidump, driver, blue screen",
-        "content": """### BSOD Troubleshooting:
-1. Check the Stop Code shown on the crash screen (e.g., DRIVER_IRQL_NOT_LESS_OR_EQUAL).
-2. Use BlueScreenView or WinDbg to open minidumps located in `C:\\Windows\\Minidump`.
-3. Identify the faulty sys driver.
-4. Boot into Safe Mode and roll back or update the flagged driver in Device Manager."""
-    },
-
-    # Hardware & Printers (RU)
-    {
-        "title": "Подключение сетевого принтера/МФУ по IP-адресу в офисе",
-        "summary": "Добавление офисного принтера через панель управления Windows без вызова инженера.",
-        "category_slug": "hardware-printers",
-        "language": "ru",
-        "tags": "принтер, печать, мфу, драйвер, сканер, ip",
-        "content": """### Добавление сетевого принтера:
-1. Узнайте IP-адрес принтера (наклейка на корпусе или отчет о конфигурации).
-2. Откройте 'Параметры Windows' -> 'Устройства' -> 'Принтеры и сканеры'.
-3. Нажмите 'Добавить принтер или сканер', затем 'Необходимый принтер отсутствует в списке'.
-4. Выберите 'Добавить принтер по TCP/IP-адресу' и введите IP принтера.
-5. Выберите драйвер 'Generic PCL6' или укажите путь к корпоративному хранилищу драйверов.
-6. Распечатайте пробную страницу."""
+        "name": "Биллинг, Авторизация и Услуги",
+        "slug": "billing-access",
+        "description": "Привязка и смена MAC-адреса, Option 82 DHCP, сброс сессий RADIUS/BRAS, финансовые блокировки, статический IP."
     },
     {
-        "title": "Решение проблемы 'Очередь печати зависла' (Spooler error)",
-        "summary": "Сброс службы очереди печати Print Spooler и удаление зависших заданий.",
-        "category_slug": "hardware-printers",
-        "language": "ru",
-        "tags": "принтер, печать, зависла, spooler, спулер, очередь",
-        "content": """### Очистка очереди печати:
-1. Запустите командную строку от имени администратора.
-2. Остановите службу печати:
-   `net stop spooler`
-3. Удалите зависшие файлы из папки:
-   `del /Q /F %systemroot%\\System32\\Spool\\Printers\\*`
-4. Запустите службу печати:
-   `net start spooler`
-5. Повторите отправку документа на печать."""
-    },
-    # Hardware & Printers (EN)
-    {
-        "title": "Polycom and Jabra Headset Audio Configuration for Video Calls",
-        "summary": "Setting default audio input/output devices and resolving microphone mute state.",
-        "category_slug": "hardware-printers",
-        "language": "en",
-        "tags": "audio, headset, mic, microphone, sound, jabra, polycom",
-        "content": """### Audio Troubleshooting:
-1. Ensure the USB dongle or cable is plugged directly into the PC, not an unpowered hub.
-2. Open Windows Sound Settings and verify the headset is set as Default Communication Device.
-3. In Teams/Zoom Settings -> Audio, manually select the device instead of 'System Default'.
-4. Check physical mute button and boom mic position."""
-    },
-
-    # Infrastructure & Databases (RU)
-    {
-        "title": "Подключение к PostgreSQL через pgAdmin и устранение ошибки 'FATAL: password authentication failed'",
-        "summary": "Диагностика учетных записей СУБД, файла pg_hba.conf и разрешений сети.",
-        "category_slug": "servers-databases",
-        "language": "ru",
-        "tags": "postgresql, pgadmin, sql, база данных, пароль, ошибка, psql",
-        "content": """### Решение ошибки авторизации PostgreSQL:
-1. Проверьте правильность порта (по умолчанию 5432, тестовые инстансы могут быть на 5433).
-2. Убедитесь, что логин и пароль вводятся с учетом регистра.
-3. Проверьте настройки файла `pg_hba.conf`: метод аутентификации должен быть scram-sha-256 или md5.
-4. Если пароль утерян, смените его через консоль суперпользователя:
-   `ALTER USER postgres WITH PASSWORD 'новый_пароль';`
-5. Перезагрузите службу сервера PostgreSQL."""
-    },
-    {
-        "title": "Создание и восстановление резервных копий баз данных PostgreSQL (pg_dump / pg_restore)",
-        "summary": "Шпаргалка по созданию дампов БД в различных форматах и аварийному восстановлению.",
-        "category_slug": "servers-databases",
-        "language": "ru",
-        "tags": "резервная копия, бэкап, pg_dump, pg_restore, sql, дамп",
-        "content": """### Создание дампа базы данных:
-`pg_dump -U postgres -h localhost -F c -b -v -f "backup.dump" dbname`
-### Восстановление из дампа:
-`pg_restore -U postgres -h localhost -d dbname -v "backup.dump"`"""
-    },
-    # Infrastructure & Databases (EN)
-    {
-        "title": "SSH Key Pair Generation and Bastion Host Access Configuration",
-        "summary": "How to generate ED25519 SSH keys and configure SSH config for jumpserver authentication.",
-        "category_slug": "servers-databases",
-        "language": "en",
-        "tags": "ssh, linux, server, bastion, ed25519, terminal, key",
-        "content": """### SSH Setup Guide:
-1. Generate key: `ssh-keygen -t ed25519 -C "user@corp"`
-2. Add public key to ~/.ssh/authorized_keys on the bastion host.
-3. Configure `~/.ssh/config`:
-   Host bastion
-     HostName 198.51.100.1
-     User developer
-     IdentityFile ~/.ssh/id_ed25519"""
+        "name": "Магистральная сеть и Коммутаторы (NOC)",
+        "slug": "infrastructure-noc",
+        "description": "2-я линия ТП и мониторинг: L2-коммутаторы доступа, штормы трафика, Loopback Detection (петли), обрывы оптики и питание узлов."
     }
 ]
 
-# SIMULATED SEARCH QUERIES
-# Category 1: Successful queries (results found, helped = True)
+from scripts.populate_50_articles import ARTICLES as ARTICLES_DATA
+
+# ==============================================================================
+# СИМУЛЯЦИЯ ПОИСКОВЫХ ЗАПРОСОВ (ДЛЯ ДАШБОРДА, МЕТРИК И АНАЛИЗА ПРОБЕЛОВ)
+# ==============================================================================
+
 SUCCESSFUL_QUERIES = [
-    ("как настроить vpn openvpn", "Настройка подключения к корпоративному VPN (OpenVPN/WireGuard)"),
-    ("подключение к офисной сети wireguard", "Настройка подключения к корпоративному VPN (OpenVPN/WireGuard)"),
-    ("ошибка dns_probe_finished_no_internet", "Устранение ошибки 'DNS_PROBE_FINISHED_NO_INTERNET' при работе через корпоративный прокси"),
-    ("как очистить кэш dns ipconfig flushdns", "Устранение ошибки 'DNS_PROBE_FINISHED_NO_INTERNET' при работе через корпоративный прокси"),
-    ("how to install wifi certificate", "Corporate Wi-Fi Certificate Installation and Troubleshooting"),
-    ("забыл пароль от учетной записи active directory", "Самостоятельный сброс пароля доменной учетной записи через SSPR"),
-    ("сбросить пароль sspr", "Самостоятельный сброс пароля доменной учетной записи через SSPR"),
-    ("двухфакторная аутентификация google authenticator", "Настройка двухфакторной аутентификации (2FA) через мобильное приложение"),
-    ("завис teams очистить кэш", "Очистка кэша Microsoft Teams при зависании и сбоях звонков"),
-    ("не удается открыть набор папок outlook ost", "Исправление ошибки запуска Outlook 'Не удается открыть набор папок'"),
-    ("как подключить сетевой принтер по ip", "Подключение сетевого принтера/МФУ по IP-адресу в офисе"),
-    ("очередь печати зависла print spooler", "Решение проблемы 'Очередь печати зависла' (Spooler error)"),
-    ("ошибка авторизации postgresql pgadmin fatal password", "Подключение к PostgreSQL через pgAdmin и устранение ошибки 'FATAL: password authentication failed'"),
-    ("how to make database backup pg_dump", "Создание и восстановление резервных копий баз данных PostgreSQL (pg_dump / pg_restore)")
+    # 1. Кабель витая пара / TDR
+    ("сетевой кабель не подключен что делать", "Диагностика ошибки «Сетевой кабель не подключен» и проверка витой пары на порту коммутатора"),
+    ("проверить витую пару тестером tdr eltex d-link", "Диагностика ошибки «Сетевой кабель не подключен» и проверка витой пары на порту коммутатора"),
+    ("нет линка на порту коммутатора обрыв витой пары", "Диагностика ошибки «Сетевой кабель не подключен» и проверка витой пары на порту коммутатора"),
+
+    # 2. Ошибка 651 PPPoE
+    ("ошибка 651 модем сообщил об ошибке pppoe windows", "Устранение ошибки 651 («Модем или другое устройство связи сообщило об ошибке») при подключении PPPoE"),
+    ("сброс tcp ip netsh winsock reset pppoe 651", "Устранение ошибки 651 («Модем или другое устройство связи сообщило об ошибке») при подключении PPPoE"),
+    ("не удается подключиться pppoe ошибка 651 raspppoe", "Устранение ошибки 651 («Модем или другое устройство связи сообщило об ошибке») при подключении PPPoE"),
+
+    # 3. Ошибка 691 / BRAS
+    ("ошибка 691 доступ запрещен неверный логин", "Диагностика ошибки 691 («Доступ запрещен») и сброс зависшей сессии абонента на BRAS/BNG"),
+    ("сбросить зависшую сессию radius bras clear pppoe", "Диагностика ошибки 691 («Доступ запрещен») и сброс зависшей сессии абонента на BRAS/BNG"),
+    ("auth reject access reject simultaneous use limit exceeded", "Диагностика ошибки 691 («Доступ запрещен») и сброс зависшей сессии абонента на BRAS/BNG"),
+
+    # 4. Оптический сигнал GPON / LOS / PON
+    ("мигает красным индикатор los на роутере gpon", "Контроль оптического сигнала на абонентском терминале GPON/ONT (индикаторы PON и LOS)"),
+    ("нормальный уровень сигнала gpon dbm rx power", "Контроль оптического сигнала на абонентском терминале GPON/ONT (индикаторы PON и LOS)"),
+    ("моргает индикатор pon нет интернета оптика затухание", "Контроль оптического сигнала на абонентском терминале GPON/ONT (индикаторы PON и LOS)"),
+
+    # 5. Настройка роутера IPoE / DHCP
+    ("как настроить роутер keenetic ipoe dhcp", "Настройка абонентского маршрутизатора (Keenetic, TP-Link, MikroTik) для подключения по IPoE (DHCP)"),
+    ("настройка tp-link динамический ip dynamic ip wan", "Настройка абонентского маршрутизатора (Keenetic, TP-Link, MikroTik) для подключения по IPoE (DHCP)"),
+    ("mikrotik dhcp client на wan интерфейсе настройка", "Настройка абонентского маршрутизатора (Keenetic, TP-Link, MikroTik) для подключения по IPoE (DHCP)"),
+
+    # 6. Wi-Fi помехи 2.4 / 5 ГГц
+    ("медленно работает интернет по wifi помехи 2.4 ггц", "Оптимизация скорости домашнего Wi-Fi: выбор каналов и устранение помех на частотах 2.4 и 5 ГГц"),
+    ("выбор свободного канала wifi 5 ггц ширина 80 мгц", "Оптимизация скорости домашнего Wi-Fi: выбор каналов и устранение помех на частотах 2.4 и 5 ГГц"),
+    ("почему падает скорость интернета через вай фай в квартире", "Оптимизация скорости домашнего Wi-Fi: выбор каналов и устранение помех на частотах 2.4 и 5 ГГц"),
+
+    # 7. MTU / MSS Clamping
+    ("не открываются сайты госуслуг размер mtu pppoe", "Устранение проблем с открытием части сайтов из-за размера MTU и фрагментации пакетов (MSS Clamping)"),
+    ("команда ping f l 1464 ya ru проверка фрагментации", "Устранение проблем с открытием части сайтов из-за размера MTU и фрагментации пакетов (MSS Clamping)"),
+    ("сайты бесконечно грузятся mss clamping размер пакета", "Устранение проблем с открытием части сайтов из-за размера MTU и фрагментации пакетов (MSS Clamping)"),
+
+    # 8. ONT в режим Bridge / Мост
+    ("перевести терминал gpon ont в мост bridge для mikrotik", "Перевод оптического терминала GPON ONT в режим прозрачного моста (Bridge) для стороннего роутера"),
+    ("eltex ntp-rg отключить nat перевести в бридж", "Перевод оптического терминала GPON ONT в режим прозрачного моста (Bridge) для стороннего роутера"),
+    ("двойной nat как обойти подключить свой роутер к ont", "Перевод оптического терминала GPON ONT в режим прозрачного моста (Bridge) для стороннего роутера"),
+
+    # 9. Зависание IPTV 10 секунд / IGMP
+    ("зависает iptv через 10 секунд igmp snooping proxy", "Зависание каналов IPTV через 10 секунд и рассыпание картинки (настройка IGMP Snooping / Proxy)"),
+    ("рассыпается картинка тв мультикаст igmp membership query", "Зависание каналов IPTV через 10 секунд и рассыпание картинки (настройка IGMP Snooping / Proxy)"),
+    ("настройка igmp proxy на домашнем роутере каналы зависают", "Зависание каналов IPTV через 10 секунд и рассыпание картинки (настройка IGMP Snooping / Proxy)"),
+
+    # 10. Приставка STB / Нет сигнала
+    ("ошибка авторизации на тв приставке stb нет сигнала", "Диагностика ошибки «Нет сигнала / Ошибка авторизации» на ТВ-приставке (STB / Android TV)"),
+    ("android tv приставка оператора сброс кэша factory reset", "Диагностика ошибки «Нет сигнала / Ошибка авторизации» на ТВ-приставке (STB / Android TV)"),
+    ("превышен лимит устройств интерактивного телевидения", "Диагностика ошибки «Нет сигнала / Ошибка авторизации» на ТВ-приставке (STB / Android TV)"),
+
+    # 11. Выделенный порт под ТВ / VLAN
+    ("настройка vlan iptv порт 4 роутер мост", "Настройка выделенного LAN-порта под ТВ-приставку на абонентском роутере (VLAN ID / Bridge)"),
+    ("выделенный порт под приставку custom vlan id tp-link", "Настройка выделенного LAN-порта под ТВ-приставку на абонентском роутере (VLAN ID / Bridge)"),
+    ("как подключить тв приставку через роутер в отдельный lan", "Настройка выделенного LAN-порта под ТВ-приставку на абонентском роутере (VLAN ID / Bridge)"),
+
+    # 12. Односторонняя слышимость / SIP ALG / RTP
+    ("односторонняя слышимость в телефоне отключить sip alg", "Односторонняя слышимость и отсутствие звука в IP-телефонии (отключение SIP ALG и проброс RTP)"),
+    ("нет звука при звонке тишина в трубке rtp порты", "Односторонняя слышимость и отсутствие звука в IP-телефонии (отключение SIP ALG и проброс RTP)"),
+    ("отключить sip alg keenetic mikrotik voip", "Односторонняя слышимость и отсутствие звука в IP-телефонии (отключение SIP ALG и проброс RTP)"),
+
+    # 13. Ошибки SIP 403 / 408
+    ("ошибка sip 403 forbidden yealink регистрация", "Устранение ошибок SIP 403 Forbidden и SIP 408 Request Timeout при регистрации IP-телефона"),
+    ("sip 408 request timeout таймаут регистрации телефона", "Устранение ошибок SIP 403 Forbidden и SIP 408 Request Timeout при регистрации IP-телефона"),
+    ("ip телефон grandstream ошибка авторизации sip сервер", "Устранение ошибок SIP 403 Forbidden и SIP 408 Request Timeout при регистрации IP-телефона"),
+
+    # 14. Виртуальная АТС / IVR / Переадресация
+    ("как настроить голосовое меню ivr виртуальная атс", "Настройка сценариев переадресации, очередей вызовов и IVR в Виртуальной АТС (ВАТС)"),
+    ("переадресация звонков в нерабочее время на сотовый ватс", "Настройка сценариев переадресации, очередей вызовов и IVR в Виртуальной АТС (ВАТС)"),
+    ("настройка очереди входящих вызовов многоканальный номер", "Настройка сценариев переадресации, очередей вызовов и IVR в Виртуальной АТС (ВАТС)"),
+
+    # 15. Смена роутера / MAC / Option 82
+    ("купил новый роутер нет интернета сбросить mac адрес", "Замена роутера абонентом: сброс привязки MAC-адреса и особенности авторизации по Option 82"),
+    ("авторизация option 82 dhcp snooping привязка к порту", "Замена роутера абонентом: сброс привязки MAC-адреса и особенности авторизации по Option 82"),
+    ("как обновить mac адрес в биллинге после замены оборудования", "Замена роутера абонентом: сброс привязки MAC-адреса и особенности авторизации по Option 82"),
+
+    # 16. Обещанный платеж / Captive Portal
+    ("подключить обещанный платеж финансовая блокировка", "Активация сервиса «Обещанный платеж» и выход из финансовой блокировки (Captive Portal)"),
+    ("заглушка пополните баланс captive portal снятие блокировки", "Активация сервиса «Обещанный платеж» и выход из финансовой блокировки (Captive Portal)"),
+    ("интернет заблокирован за неуплату как взять доверительный платеж", "Активация сервиса «Обещанный платеж» и выход из финансовой блокировки (Captive Portal)"),
+
+    # 17. Статический белый IP / Проброс портов
+    ("как подключить статический белый ip для видеонаблюдения", "Подключение услуги статического белого IP-адреса и настройка проброса портов (Port Forwarding)"),
+    ("проброс портов port forwarding роутер серый ip cgnat", "Подключение услуги статического белого IP-адреса и настройка проброса портов (Port Forwarding)"),
+    ("доступ к видеорегистратору через интернет внешний белый ip", "Подключение услуги статического белого IP-адреса и настройка проброса портов (Port Forwarding)"),
+
+    # 18. Loopback Detection / Сетевая петля
+    ("заблокирован порт петля loopback detection коммутатор", "Блокировка порта коммутатора доступа по Loopback Detection (сетевое кольцо/петля у абонента)"),
+    ("состояние err-disable на свитче закольцевали кабель", "Блокировка порта коммутатора доступа по Loopback Detection (сетевое кольцо/петля у абонента)"),
+    ("как разблокировать порт после устранения сетевого кольца eltex", "Блокировка порта коммутатора доступа по Loopback Detection (сетевое кольцо/петля у абонента)"),
+
+    # 19. Массовая авария на узле связи / ВОЛС
+    ("массовая авария на узле связи нет интернета дом", "Регламент действий при массовой аварии на узле связи: отключение электропитания и обрыв ВОЛС"),
+    ("отключение электричества на узле связи переход на ups", "Регламент действий при массовой аварии на узле связи: отключение электропитания и обрыв ВОЛС"),
+    ("обрыв оптической магистрали zabbix хосты недоступны", "Регламент действий при массовой аварии на узле связи: отключение электропитания и обрыв ВОЛС"),
+
+    # 20. Широковещательный шторм / Storm Control
+    ("широковещательный шторм broadcast storm control на свитче", "Локализация широковещательного шторма (Broadcast Storm) и активация Storm Control на порту доступа"),
+    ("загрузка cpu коммутатора 100% флуд мультикаст пакетов", "Локализация широковещательного шторма (Broadcast Storm) и активация Storm Control на порту доступа"),
+    ("настройка storm control broadcast kbps 1024 изоляция порта", "Локализация широковещательного шторма (Broadcast Storm) и активация Storm Control на порту доступа")
 ]
 
-# Category 2: SEARCH GAPS (Topics NOT covered in KB, 0 results or answer did not help!)
-# We formulate realistic groups of queries that should naturally cluster together:
+# ТЕМАТИЧЕСКИЕ ПОИСКОВЫЕ ПРОБЕЛЫ (SEARCH GAPS), которых пока НЕТ в базе статей (40 запросов):
+# Алгоритм NLP-кластеризации автоматически сгруппирует их по семантике
 GAP_CLUSTERS_DATA = [
-    # Cluster A: Docker WSL2 Daemon issues (RU & EN)
+    # Кластер 1: IPv6 и делегирование префиксов DHCPv6 Prefix Delegation (PD)
     [
-        "Ошибка docker daemon не запускается в wsl2",
-        "docker Desktop wsl error failed to start daemon",
-        "wsl2 docker daemon is not running can not connect",
-        "не стартует служба докер в подсистеме wsl",
-        "Docker Desktop stopped unexpectedly WSL error",
-        "wsl --shutdown не помогает запустить docker daemon",
-        "Docker daemon crash in Windows 11 WSL2"
+        "как включить ipv6 на роутере keenetic провайдер",
+        "настройка ipv6 dhcpv6 pd prefix delegation роутер",
+        "выдает ли наш провайдер ipv6 адреса для дома",
+        "ошибка ipv6 no prefix received wan dhcp6 клиент",
+        "поддержка ipv6 в сети оператора как настроить wan ipv6",
+        "настройка slaac и dhcpv6 на домашнем оборудовании",
+        "маршрутизация ipv6 префикс /56 или /64 в сети провайдера"
     ],
-    # Cluster B: Rutoken / Smart Card CryptoPro digital signature issues (RU)
+    # Кластер 2: Умный домофон и видеонаблюдение подъезда в мобильном приложении
     [
-        "Сброс пин-кода Rutoken ЭЦП",
-        "Ошибка сертификата криптопро 0x80090016",
-        "Заблокирован смарт-токен JaCarta пин код пользователя",
-        "Рутокен ЭЦП не определяется в системе плагин госуслуг",
-        "КриптоПро CSP не видит сертификат на флешке токена",
-        "Пин-код администратора Rutoken по умолчанию",
-        "Ошибка 0x80090016 при подписании документа криптопро"
+        "не приходят звонки с умного домофона в приложение на телефон",
+        "как подключить второй телефон к домофону провайдера",
+        "умный домофон пишет нет связи с камерой подъезда сбой",
+        "приложение домофон не открывает дверь с телефона кнопка не работает",
+        "настройка мобильного приложения умный дом домофон авторизация",
+        "не работает видеокамера на подъездном домофоне черный экран",
+        "сброс пароля в приложении умный домофон для жильцов"
     ],
-    # Cluster C: Multiple monitors via Type-C Hub / DisplayPort (RU & EN)
+    # Кластер 3: Родительский контроль и фильтрация контента / DNS Безопасный интернет
     [
-        "Как подключить второй монитор через DisplayPort type-c",
-        "type-c hub external display not detected black screen",
-        "Ноутбук не видит второй монитор через док-станцию usb-c",
-        "Type-c dock station hdmi no signal on second monitor",
-        "Мерцает монитор подключенный через переходник thunderbolt",
-        "DisplayPort over USB-C monitor signal lost"
+        "как заблокировать опасные сайты 18+ для ребенка через роутер",
+        "подключение услуги детский интернет яндекс dns семейный",
+        "родительский контроль на домашнем интернете провайдера включить",
+        "фильтрация контента и блокировка сайтов на уровне роутера",
+        "как оградить ребенка от нежелательного контента профиль dns",
+        "блокировка сайтов по расписанию для детского смартфона",
+        "услуга безопасный интернет антивирус на шлюзе провайдера"
     ],
-    # Cluster D: Git LFS / Large files rejection on push (RU & EN)
+    # Кластер 4: Подключение терминалов оплаты эквайринга и онлайн-касс B2B
     [
-        "Git push rejected file exceeds 100mb limit git-lfs",
-        "Ошибка git lfs при пуше большого файла в репозиторий",
-        "how to migrate existing large files to git lfs",
-        "Git remote reject file size larger than 100MB",
-        "Как настроить git-lfs на рабочем компьютере"
+        "эквайринг pos терминал сбербанка не может связаться с банком ошибка",
+        "настройка онлайн кассы эвотор через ethernet кабель провайдера",
+        "банковский терминал оплаты ошибка связи с сервером авторизации",
+        "проброс портов для pos терминала оплаты b2b статический ip",
+        "сбои в работе кассового аппарата через интернет провайдера таймаут",
+        "терминал оплаты картой пишет нет связи с хостом ошибка 4119",
+        "настройка vpn туннеля для банкоматов и кассовых узлов"
+    ],
+    # Кластер 5: Бесшовный Wi-Fi роуминг и Mesh-системы в квартирах
+    [
+        "как настроить mesh систему в большой квартире провайдер",
+        "роутер keenetic mesh wi-fi обрывы при переходе между комнатами",
+        "бесшовный роуминг 802.11k 802.11v настройка mesh узлов",
+        "почему не переключается телефон на второй роутер в mesh сети",
+        "подключение дополнительного репитера wi-fi усилителя сигнала",
+        "настройка контроллера mesh wi-fi на домашней сети"
+    ],
+    # Кластер 6: Удаленное видеонаблюдение через P2P облако без статического IP
+    [
+        "видеонаблюдение p2p cloud hikvision dahua не в сети",
+        "камера пишет статус offline в приложении без белого ip",
+        "как настроить удаленный доступ к видеорегистратору через p2p",
+        "роутер блокирует p2p соединение облака видеонаблюдения",
+        "почему не работает трансляция с камеры через приложение на телефоне",
+        "порты для облачного подключения камер cctv cloud connect"
     ]
 ]
 
-async def seed_database():
-    print(">>> Starting database seeding...")
+async def seed_database(reset: bool = True):
+    print(">>> Инициализация базы данных технической поддержки телеком-провайдера...")
     
     from app.core.database import check_db_connection_and_fallback, get_engine, get_sessionmaker
     await check_db_connection_and_fallback()
@@ -327,121 +236,149 @@ async def seed_database():
     engine = get_engine()
     session_maker = get_sessionmaker()
     
-    # 1. Create tables if needed
+    # Создание таблиц при необходимости
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
     async with session_maker() as session:
-        # Check existing categories
-        cat_result = await session.execute(select(Category))
-        categories = cat_result.scalars().all()
-        
+        if reset:
+            print(">>> Полный сброс старых данных для чистой переиндексации...")
+            await session.execute(delete(SearchLog))
+            await session.execute(delete(SearchGapCluster))
+            await session.execute(delete(Article))
+            await session.execute(delete(Category))
+            await session.commit()
+
+        # 1. Проверка и создание пользователей по умолчанию
+        admin_res = await session.execute(select(User).where(User.username == "admin"))
+        admin_user = admin_res.scalar_one_or_none()
+        if not admin_user:
+            admin_user = User(
+                email="admin@telecom.corp",
+                username="admin",
+                full_name="Администратор Системы",
+                hashed_password=get_password_hash("admin123"),
+                role=UserRole.ADMIN
+            )
+            moderator_user = User(
+                email="moderator@telecom.corp",
+                username="moderator",
+                full_name="Модератор Базы Знаний",
+                hashed_password=get_password_hash("moderator123"),
+                role=UserRole.MODERATOR
+            )
+            operator_user = User(
+                email="operator@telecom.corp",
+                username="operator",
+                full_name="Оператор 1-й Линии",
+                hashed_password=get_password_hash("operator123"),
+                role=UserRole.OPERATOR
+            )
+            session.add_all([admin_user, moderator_user, operator_user])
+            await session.commit()
+            await session.refresh(admin_user)
+            print(">>> Созданы системные пользователи: admin, moderator, operator")
+
+        # 2. Создание категорий телеком-провайдера
         category_map = {}
-        if not categories:
-            print(">>> Creating categories...")
-            for cat_info in CATEGORIES_DATA:
-                c = Category(**cat_info)
-                session.add(c)
-                await session.flush()
-                category_map[c.slug] = c.id
-            await session.commit()
-        else:
-            for c in categories:
-                category_map[c.slug] = c.id
+        for cat_info in CATEGORIES_DATA:
+            cat = Category(**cat_info)
+            session.add(cat)
+            await session.flush()
+            category_map[cat.slug] = cat.id
+        await session.commit()
+        print(f">>> Создано категорий телекома: {len(CATEGORIES_DATA)}")
 
-        # 2. Check existing articles
-        art_result = await session.execute(select(Article))
-        articles = art_result.scalars().all()
+        # 3. Создание 20 статей базы знаний с векторными эмбеддингами
         article_title_map = {}
+        print(f">>> Генерация {len(ARTICLES_DATA)} статей техподдержки телекома с векторными эмбеддингами...")
+        for idx, a_data in enumerate(ARTICLES_DATA, start=1):
+            cat_id = category_map.get(a_data["category_slug"])
+            text_to_embed = f"{a_data['title']}. {a_data['summary']} {a_data['content']} {a_data['tags']}"
+            emb = embedding_service.encode(text_to_embed, normalize=True).tolist()
+            
+            art = Article(
+                title=a_data["title"],
+                summary=a_data["summary"],
+                content=a_data["content"],
+                tags=a_data["tags"],
+                category_id=cat_id,
+                created_by_id=admin_user.id,
+                is_published=True,
+                views_count=random.randint(25, 340),
+                helpful_count=random.randint(18, 95),
+                unhelpful_count=random.randint(0, 3),
+                embedding=emb
+            )
+            session.add(art)
+            await session.flush()
+            article_title_map[art.title] = art.id
+            print(f"    [{idx:02d}/{len(ARTICLES_DATA)}] Эмбеддинг: {art.title[:50]}...")
+        await session.commit()
 
-        if not articles:
-            print(f">>> Creating {len(ARTICLES_DATA)} articles with embeddings (multilingual)...")
-            for idx, a_data in enumerate(ARTICLES_DATA, start=1):
-                cat_id = category_map.get(a_data["category_slug"])
-                text_to_embed = f"{a_data['title']}. {a_data['summary']} {a_data['content']} {a_data['tags']}"
-                emb = embedding_service.encode(text_to_embed, normalize=True).tolist()
+        # 4. Генерация реалистичных поисковых логов операторов
+        print(">>> Генерация истории поисковых запросов и пробелов знаний...")
+        now = datetime.now(timezone.utc)
+
+        # 4.1. Успешные поиски (решение найдено и помогло)
+        for query_text, art_title in SUCCESSFUL_QUERIES:
+            art_id = article_title_map.get(art_title)
+            for _ in range(random.randint(3, 6)):
+                days_ago = random.randint(0, 6)
+                hours_ago = random.randint(1, 23)
+                t_stamp = now - timedelta(days=days_ago, hours=hours_ago)
                 
-                art = Article(
-                    title=a_data["title"],
-                    summary=a_data["summary"],
-                    content=a_data["content"],
-                    tags=a_data["tags"],
-                    language=a_data["language"],
-                    category_id=cat_id,
-                    is_published=True,
-                    views_count=random.randint(15, 240),
-                    helpful_count=random.randint(10, 85),
-                    unhelpful_count=random.randint(0, 4),
-                    embedding=emb
+                q_emb = embedding_service.encode(query_text, normalize=True).tolist()
+                log = SearchLog(
+                    query_text=query_text,
+                    operator_id=admin_user.id,
+                    search_type="hybrid",
+                    results_count=random.randint(1, 4),
+                    execution_time_ms=round(random.uniform(15.0, 42.0), 1),
+                    returned_article_ids=[art_id] if art_id else [],
+                    clicked_article_id=art_id,
+                    is_helpful=True,
+                    is_search_gap=False,
+                    query_embedding=q_emb,
+                    timestamp=t_stamp
                 )
-                session.add(art)
-                await session.flush()
-                article_title_map[art.title] = art.id
-                print(f"    [{idx}/{len(ARTICLES_DATA)}] Embedded article: {art.title[:45]}...")
-            await session.commit()
-        else:
-            for a in articles:
-                article_title_map[a.title] = a.id
+                session.add(log)
 
-        # 3. Create realistic search logs (successful + search gaps)
-        log_count_res = await session.execute(select(SearchLog))
-        if len(log_count_res.scalars().all()) < 20:
-            print(">>> Generating simulated search query logs and search gaps...")
-            now = datetime.now(timezone.utc)
-
-            # Generate successful searches
-            for query_text, art_title in SUCCESSFUL_QUERIES:
-                art_id = article_title_map.get(art_title)
-                for _ in range(random.randint(3, 7)):
-                    days_ago = random.randint(0, 6)
-                    hours_ago = random.randint(1, 23)
-                    t_stamp = now - timedelta(days=days_ago, hours=hours_ago)
+        # 4.2. Поисковые пробелы (0 результатов или ответ не помог оператору)
+        for cluster_queries in GAP_CLUSTERS_DATA:
+            for q_text in cluster_queries:
+                for _ in range(random.randint(2, 4)):
+                    days_ago = random.randint(0, 5)
+                    t_stamp = now - timedelta(days=days_ago, hours=random.randint(1, 20))
                     
-                    q_emb = embedding_service.encode(query_text, normalize=True).tolist()
-                    log = SearchLog(
-                        query_text=query_text,
+                    is_zero_result = random.random() > 0.25
+                    results_count = 0 if is_zero_result else random.randint(1, 2)
+                    
+                    q_emb = embedding_service.encode(q_text, normalize=True).tolist()
+                    gap_log = SearchLog(
+                        query_text=q_text,
+                        operator_id=admin_user.id,
                         search_type="hybrid",
-                        results_count=random.randint(1, 4),
-                        execution_time_ms=round(random.uniform(18.0, 45.0), 1),
-                        returned_article_ids=[art_id] if art_id else [],
-                        clicked_article_id=art_id,
-                        is_helpful=True,
-                        is_search_gap=False,
+                        results_count=results_count,
+                        execution_time_ms=round(random.uniform(12.0, 32.0), 1),
+                        returned_article_ids=[] if is_zero_result else [1],
+                        clicked_article_id=None if is_zero_result else 1,
+                        is_helpful=False,
+                        is_search_gap=True,
                         query_embedding=q_emb,
                         timestamp=t_stamp
                     )
-                    session.add(log)
+                    session.add(gap_log)
 
-            # Generate GAP searches (0 results OR operator marked 'Answer didn't help')
-            for cluster_queries in GAP_CLUSTERS_DATA:
-                for q_text in cluster_queries:
-                    for _ in range(random.randint(2, 4)):
-                        days_ago = random.randint(0, 5)
-                        t_stamp = now - timedelta(days=days_ago, hours=random.randint(1, 20))
-                        
-                        # 70% chance of 0 results, 30% chance of results > 0 with is_helpful = False
-                        is_zero_result = random.random() > 0.3
-                        results_count = 0 if is_zero_result else random.randint(1, 2)
-                        
-                        q_emb = embedding_service.encode(q_text, normalize=True).tolist()
-                        gap_log = SearchLog(
-                            query_text=q_text,
-                            search_type="hybrid",
-                            results_count=results_count,
-                            execution_time_ms=round(random.uniform(15.0, 35.0), 1),
-                            returned_article_ids=[] if is_zero_result else [1],
-                            clicked_article_id=None if is_zero_result else 1,
-                            is_helpful=False,  # Operator explicitly flagged 'Didn't help' or no results
-                            is_search_gap=True,
-                            query_embedding=q_emb,
-                            timestamp=t_stamp
-                        )
-                        session.add(gap_log)
+        await session.commit()
+        print(">>> База знаний телекома успешно засеяна!")
 
-            await session.commit()
-            print(">>> Seed data created successfully: Categories, Articles, Embeddings, Search Logs, Search Gaps!")
-        else:
-            print(">>> Database already contains search logs, skipping log generation.")
+        # 5. Запуск автоматической NLP-кластеризации для формирования карточек пробелов
+        print(">>> Запуск автоматической кластеризации поисковых пробелов...")
+        from app.services.clustering import clustering_service
+        cluster_res = await clustering_service.cluster_unaddressed_gaps(session)
+        print(f">>> Кластеризация завершена: {cluster_res['message']} (сформировано кластеров: {cluster_res['clusters_created']}, silhouette: {cluster_res['silhouette_score']})")
 
 if __name__ == "__main__":
-    asyncio.run(seed_database())
+    reset_flag = True if "--no-reset" not in sys.argv else False
+    asyncio.run(seed_database(reset=reset_flag))

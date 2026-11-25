@@ -3,7 +3,7 @@ from typing import List
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "IT Knowledge Base & Hybrid Search"
+    PROJECT_NAME: str = "Helpix — Knowledge Base & Hybrid Search"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
     
@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # Database
     # Default to localhost:5432/vkr_kb (can be overridden via .env)
     DB_USER: str = "postgres"
-    DB_PASSWORD: str = "postgres"
+    DB_PASSWORD: str = "123"
     DB_HOST: str = "localhost"
     DB_PORT: int = 5432
     DB_NAME: str = "vkr_knowledge_base"
@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     # Hybrid Search Weights
     RRF_K: int = 60
     DEFAULT_TOP_K: int = 10
+    SEMANTIC_SIMILARITY_THRESHOLD: float = 0.30
     
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = ["*"]

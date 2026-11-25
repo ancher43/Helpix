@@ -1,5 +1,11 @@
 import os
+import sys
+import asyncio
 import logging
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine
 from sqlalchemy.orm import declarative_base
@@ -36,10 +42,23 @@ class DatabaseManager:
 
     @classmethod
     async def check_and_fallback(cls):
-        cls.init()
+        # Always initialize/bind engine inside active event loop
+        cls.engine = create_async_engine(
+            PG_URL,
+            echo=False,
+            future=True,
+            pool_pre_ping=True
+        )
+        cls.session_maker = async_sessionmaker(
+            bind=cls.engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+            autoflush=False
+        )
         try:
             async with cls.engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
+            cls.is_sqlite = False
             logger.info(f"Connected to PostgreSQL at {settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}")
         except Exception as e:
             logger.warning(f"PostgreSQL connection failed ({e}). Switching to local SQLite storage.")

@@ -1,5 +1,5 @@
-Write-Host "=========================================================================" -ForegroundColor Cyan
-Write-Host "   HelpDesk Knowledge Base - Hybrid Search & Gap Clustering" -ForegroundColor Cyan
+﻿Write-Host "=========================================================================" -ForegroundColor Cyan
+Write-Host "   Helpix - Knowledge Base & Hybrid Search" -ForegroundColor Cyan
 Write-Host "=========================================================================" -ForegroundColor Cyan
 Write-Host ""
 

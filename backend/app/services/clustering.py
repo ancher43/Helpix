@@ -1,5 +1,6 @@
 import logging
 from typing import List, Dict, Any, Tuple, Optional
+from datetime import datetime, timezone
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.decomposition import PCA
@@ -16,6 +17,37 @@ logger = logging.getLogger(__name__)
 class SearchGapClusteringService:
     def __init__(self, min_cluster_size: int = 2):
         self.min_cluster_size = min_cluster_size
+
+    @staticmethod
+    def _format_acronyms(text: str) -> str:
+        """Capitalize first letter and format technical abbreviations."""
+        import re
+        t = text.strip()
+        if not t:
+            return t
+        t = t[0].upper() + t[1:]
+        replacements = {
+            r'\bipv6\b': 'IPv6',
+            r'\bipv4\b': 'IPv4',
+            r'\bwi-fi\b': 'Wi-Fi',
+            r'\bwifi\b': 'Wi-Fi',
+            r'\bp2p\b': 'P2P',
+            r'\bpos\b': 'POS',
+            r'\bсбп\b': 'СБП',
+            r'\бофд\b': 'ОФД',
+            r'\bvpn\b': 'VPN',
+            r'\bdns\b': 'DNS',
+            r'\bdhcp\b': 'DHCP',
+            r'\bont\b': 'ONT',
+            r'\bgpon\b': 'GPON',
+            r'\bkeenetic\b': 'Keenetic',
+            r'\bhikvision\b': 'Hikvision',
+            r'\bdahua\b': 'Dahua',
+            r'\bwireguard\b': 'WireGuard',
+        }
+        for pat, rep in replacements.items():
+            t = re.sub(pat, rep, t, flags=re.IGNORECASE)
+        return t
 
     @staticmethod
     def _extract_cluster_keywords(queries: List[str], top_n: int = 4) -> List[str]:
@@ -102,13 +134,19 @@ class SearchGapClusteringService:
 
         X = np.array(embeddings, dtype=np.float32)
 
-        # Dimensionality reduction for visualization (2D PCA)
-        pca = PCA(n_components=2, random_state=42)
-        X_2d = pca.fit_transform(X) if len(queries) >= 2 else np.zeros((len(queries), 2))
+        # Dimensionality reduction for visualization (3D PCA)
+        n_comp = min(3, len(queries))
+        pca = PCA(n_components=n_comp, random_state=42)
+        X_reduced = pca.fit_transform(X) if len(queries) >= 2 else np.zeros((len(queries), 3))
+        if X_reduced.shape[1] < 3:
+            pad = np.zeros((X_reduced.shape[0], 3 - X_reduced.shape[1]))
+            X_3d = np.hstack([X_reduced, pad])
+        else:
+            X_3d = X_reduced
 
-        # Dynamic number of clusters (heuristic: sqrt(N / 2) bounded between 2 and 10)
+        # Dynamic number of clusters (heuristic: sqrt(N * 2.3) bounded between 3 and 20)
         n_samples = len(queries)
-        n_clusters = max(2, min(int(np.sqrt(n_samples / 1.5)), 10))
+        n_clusters = max(3, min(int(np.sqrt(n_samples * 2.3)), 20))
         if n_clusters >= n_samples:
             n_clusters = max(1, n_samples - 1)
 
@@ -133,6 +171,17 @@ class SearchGapClusteringService:
         for idx, lbl in enumerate(labels):
             cluster_groups.setdefault(lbl, []).append(idx)
 
+        # If any singleton clusters exist, merge them into the nearest valid cluster centroid
+        valid_groups = {lbl: idxs for lbl, idxs in cluster_groups.items() if len(idxs) >= self.min_cluster_size}
+        singletons = [i for lbl, idxs in cluster_groups.items() if len(idxs) < self.min_cluster_size for i in idxs]
+        if singletons and valid_groups:
+            centroids = {lbl: np.mean(X[idxs], axis=0) for lbl, idxs in valid_groups.items()}
+            for s_idx in singletons:
+                s_emb = X[s_idx]
+                best_lbl = max(centroids.keys(), key=lambda l: float(np.dot(s_emb, centroids[l]) / (np.linalg.norm(s_emb) * np.linalg.norm(centroids[l]) + 1e-9)))
+                valid_groups[best_lbl].append(s_idx)
+            cluster_groups = valid_groups
+
         created_clusters_count = 0
 
         # Create SearchGapCluster records and link logs
@@ -145,14 +194,17 @@ class SearchGapClusteringService:
             medoid_query = self._find_medoid_query(member_queries, member_embeddings)
             keywords = self._extract_cluster_keywords(member_queries, top_n=5)
             
-            # Capitalize medoid for title
-            cluster_title = medoid_query.strip().capitalize()
-            if len(cluster_title) > 60:
-                cluster_title = cluster_title[:57] + "..."
+            # Capitalize medoid for title, strip common redundant prefixes
+            import re
+            cleaned_title = re.sub(r'^(как (настроить|включить|подключить|сделать)|почему не (работает|приходят|проходит))\s+', '', medoid_query.strip(), flags=re.IGNORECASE)
+            cluster_title = self._format_acronyms(cleaned_title)
+            if len(cluster_title) > 250:
+                cluster_title = cluster_title[:250].strip()
 
-            # Center coordinates for visualization
-            center_x = float(np.mean(X_2d[member_indices, 0]))
-            center_y = float(np.mean(X_2d[member_indices, 1]))
+            # Center coordinates for 3D visualization
+            center_x = float(np.mean(X_3d[member_indices, 0]))
+            center_y = float(np.mean(X_3d[member_indices, 1]))
+            center_z = float(np.mean(X_3d[member_indices, 2]))
 
             # Unique sample queries
             unique_samples = list(dict.fromkeys(member_queries))[:8]
@@ -165,7 +217,10 @@ class SearchGapClusteringService:
                 keywords=keywords,
                 pca_x=round(center_x, 3),
                 pca_y=round(center_y, 3),
-                status=ClusterStatus.NEW
+                pca_z=round(center_z, 3),
+                status=ClusterStatus.NEW,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
             db.add(new_cluster)
             await db.flush()  # Obtain new_cluster.id

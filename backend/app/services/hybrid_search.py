@@ -9,8 +9,9 @@ from app.services.embedding import embedding_service
 from app.core.config import settings
 
 class HybridSearchService:
-    def __init__(self, rrf_k: int = 60):
+    def __init__(self, rrf_k: int = 60, semantic_threshold: Optional[float] = None):
         self.rrf_k = rrf_k
+        self.semantic_threshold = semantic_threshold if semantic_threshold is not None else getattr(settings, 'SEMANTIC_SIMILARITY_THRESHOLD', 0.30)
 
     @staticmethod
     def _create_snippet(content: str, query: str, max_length: int = 180) -> str:
@@ -48,8 +49,7 @@ class HybridSearchService:
         query: str,
         search_mode: str = "hybrid",
         top_k: int = 10,
-        category_id: Optional[int] = None,
-        language: Optional[str] = None
+        category_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Executes hybrid search combining lexical (text) and semantic (vector) rankings
@@ -61,15 +61,16 @@ class HybridSearchService:
             return {
                 "results": [],
                 "total_found": 0,
-                "execution_time_ms": 0.0
+                "execution_time_ms": 0.0,
+                "text_count": 0,
+                "semantic_count": 0,
+                "hybrid_count": 0
             }
 
         # Fetch active published articles
         stmt = select(Article, Category.name.label("category_name")).outerjoin(Category, Article.category_id == Category.id).where(Article.is_published == True)
         if category_id:
             stmt = stmt.where(Article.category_id == category_id)
-        if language:
-            stmt = stmt.where(Article.language == language)
             
         result = await db.execute(stmt)
         rows = result.all()
@@ -78,7 +79,10 @@ class HybridSearchService:
             return {
                 "results": [],
                 "total_found": 0,
-                "execution_time_ms": round((time.time() - start_time) * 1000, 2)
+                "execution_time_ms": round((time.time() - start_time) * 1000, 2),
+                "text_count": 0,
+                "semantic_count": 0,
+                "hybrid_count": 0
             }
 
         articles_data = []
@@ -151,8 +155,8 @@ class HybridSearchService:
                 sim = 0.0
             
             semantic_sim_map[item["article"].id] = sim
-            # Include if similarity is meaningful (> 0.20 threshold)
-            if sim > 0.18:
+            # Include if similarity meets the threshold (configured in settings)
+            if sim >= self.semantic_threshold:
                 semantic_scored_items.append((item, sim))
 
         semantic_scored_items.sort(key=lambda x: x[1], reverse=True)
@@ -164,6 +168,9 @@ class HybridSearchService:
         # RRF formula: Score(d) = sum(1 / (k + rank))
         combined_candidates = {}
         
+        # All hybrid candidate IDs (union of text matches and semantic matches)
+        all_hybrid_candidate_ids = set(text_rank_map.keys()).union(set(semantic_rank_map.keys()))
+
         if search_mode == "text":
             for item, _ in text_scored_items:
                 art_id = item["article"].id
@@ -185,13 +192,10 @@ class HybridSearchService:
                     "similarity": semantic_sim_map.get(art_id, 0.0)
                 }
         else:  # hybrid
-            # Union of candidates from text and semantic
-            all_candidate_ids = set(text_rank_map.keys()).union(set(semantic_rank_map.keys()))
-            
             # Map id to item
             id_to_item = {item["article"].id: item for item in articles_data}
             
-            for art_id in all_candidate_ids:
+            for art_id in all_hybrid_candidate_ids:
                 item = id_to_item[art_id]
                 rrf_score = 0.0
                 
@@ -226,7 +230,6 @@ class HybridSearchService:
                 "content_snippet": snippet,
                 "category_name": cat_name,
                 "tags": art.tags,
-                "language": art.language,
                 "rrf_score": round(r["rrf_score"], 5),
                 "text_rank": r["text_rank"],
                 "semantic_rank": r["semantic_rank"],
@@ -237,7 +240,13 @@ class HybridSearchService:
         return {
             "results": output_items,
             "total_found": len(output_items),
-            "execution_time_ms": execution_time
+            "execution_time_ms": execution_time,
+            "text_count": len(text_scored_items),
+            "semantic_count": len(semantic_scored_items),
+            "hybrid_count": len(all_hybrid_candidate_ids)
         }
 
-hybrid_search_service = HybridSearchService(rrf_k=settings.RRF_K)
+hybrid_search_service = HybridSearchService(
+    rrf_k=settings.RRF_K,
+    semantic_threshold=settings.SEMANTIC_SIMILARITY_THRESHOLD
+)

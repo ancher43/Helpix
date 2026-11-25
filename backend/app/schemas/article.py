@@ -22,7 +22,6 @@ class ArticleBase(BaseModel):
     content: str
     summary: Optional[str] = None
     tags: Optional[str] = None
-    language: str = "ru"
     category_id: Optional[int] = None
     is_published: bool = True
 
@@ -34,7 +33,6 @@ class ArticleUpdate(BaseModel):
     content: Optional[str] = None
     summary: Optional[str] = None
     tags: Optional[str] = None
-    language: Optional[str] = None
     category_id: Optional[int] = None
     is_published: Optional[bool] = None
 
@@ -55,7 +53,6 @@ class ArticleListItem(BaseModel):
     title: str
     summary: Optional[str] = None
     tags: Optional[str] = None
-    language: str
     category_name: Optional[str] = None
     views_count: int
     helpful_count: int

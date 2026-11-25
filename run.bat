@@ -1,5 +1,5 @@
 @echo off
-title HelpDesk Knowledge Base
+title Helpix
 cd /d "D:\VKR\backend"
 
 if not exist "D:\VKR\venv\Scripts\python.exe" (
@@ -8,14 +8,14 @@ if not exist "D:\VKR\venv\Scripts\python.exe" (
     exit /b 1
 )
 
-echo =========================================================================
-echo    HelpDesk Knowledge Base - Hybrid Search and Gap Clustering
-echo =========================================================================
+echo ====================================================
+echo  Helpix - Knowledge Base & Hybrid Search
+echo ====================================================
 echo.
 echo  Web Interface: http://localhost:8000
 echo  API Docs (Swagger UI): http://localhost:8000/docs
 echo.
-echo =========================================================================
+echo ====================================================
 echo.
 
 "D:\VKR\venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload

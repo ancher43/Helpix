@@ -22,7 +22,6 @@ class Article(Base):
     content = Column(Text, nullable=False)
     summary = Column(Text, nullable=True)
     tags = Column(String(255), nullable=True)  # Comma-separated or keywords
-    language = Column(String(10), default="ru", nullable=False)  # "ru" or "en"
     
     category_id = Column(Integer, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
     created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
@@ -40,5 +39,5 @@ class Article(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
-    category = relationship("Category", back_populates="articles")
+    category = relationship("Category", back_populates="articles", lazy="selectin")
     author = relationship("User", back_populates="articles")
