@@ -776,10 +776,14 @@ async function openArticleView(articleId) {
   const titleEl = document.getElementById("modalArticleTitle");
   const catEl = document.getElementById("modalArticleCategory");
   const contentEl = document.getElementById("modalArticleContent");
+  const createdAtEl = document.getElementById("modalArticleCreatedAt");
+  const updatedAtEl = document.getElementById("modalArticleUpdatedAt");
   const btnGroup = document.getElementById("feedbackButtonsGroup");
 
   titleEl.textContent = "Загрузка...";
   contentEl.innerHTML = `<div class="py-8 text-center text-slate-400">Загрузка содержимого...</div>`;
+  if (createdAtEl) createdAtEl.textContent = "—";
+  if (updatedAtEl) updatedAtEl.textContent = "—";
   modal.classList.remove("hidden");
 
   // Show feedback rating bar ONLY if opened from Search tab; hide if opened from Articles catalog
@@ -803,6 +807,8 @@ async function openArticleView(articleId) {
 
     titleEl.textContent = article.title;
     catEl.textContent = article.category ? article.category.name : "Общее";
+    if (createdAtEl) createdAtEl.textContent = formatClusterDate(article.created_at);
+    if (updatedAtEl) updatedAtEl.textContent = formatClusterDate(article.updated_at || article.created_at);
     
     // Parse markdown
     contentEl.innerHTML = marked.parse(article.content || "");

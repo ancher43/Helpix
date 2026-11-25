@@ -36,7 +36,7 @@ class Article(Base):
     embedding = Column(JSON, nullable=True)
     
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     category = relationship("Category", back_populates="articles", lazy="selectin")

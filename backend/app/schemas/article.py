@@ -58,6 +58,7 @@ class ArticleListItem(BaseModel):
     helpful_count: int
     unhelpful_count: int
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

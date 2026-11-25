@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func
@@ -81,7 +82,8 @@ async def list_articles(
             views_count=art.views_count,
             helpful_count=art.helpful_count,
             unhelpful_count=art.unhelpful_count,
-            created_at=art.created_at
+            created_at=art.created_at,
+            updated_at=art.updated_at
         ))
     return items
 
@@ -110,6 +112,7 @@ async def create_article(
     text_to_embed = f"{article_in.title}. {article_in.summary or ''} {article_in.content} {article_in.tags or ''}"
     embedding = embedding_service.encode(text_to_embed, normalize=True).tolist()
 
+    now_utc = datetime.now(timezone.utc)
     article = Article(
         title=article_in.title,
         content=article_in.content,
@@ -118,7 +121,9 @@ async def create_article(
         category_id=article_in.category_id,
         created_by_id=user.id,
         is_published=article_in.is_published,
-        embedding=embedding
+        embedding=embedding,
+        created_at=now_utc,
+        updated_at=now_utc
     )
     db.add(article)
     await db.commit()
@@ -148,6 +153,7 @@ async def update_article(
         text_to_embed = f"{article.title}. {article.summary or ''} {article.content} {article.tags or ''}"
         article.embedding = embedding_service.encode(text_to_embed, normalize=True).tolist()
 
+    article.updated_at = datetime.now(timezone.utc)
     await db.commit()
     stmt = select(Article).options(selectinload(Article.category)).where(Article.id == article.id)
     updated_article = (await db.execute(stmt)).scalar_one()
