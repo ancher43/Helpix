@@ -19,7 +19,7 @@ const DEMO_CREDENTIALS = {
 const ROLE_NAMES = {
   admin: "Администратор",
   moderator: "Модератор",
-  operator: "Оператор ТП"
+  operator: "Оператор"
 };
 
 const TAB_TITLES = {
@@ -203,11 +203,6 @@ function renderUserHeader() {
   const staticName = document.getElementById("userStaticRoleName");
   const adminSwitcher = document.getElementById("adminRoleSwitcherContainer");
   const roleSelect = document.getElementById("userRoleSelect");
-  const userNameEl = document.getElementById("headerUserName");
-
-  if (userNameEl) {
-    userNameEl.textContent = currentUser ? (currentUser.full_name || currentUser.username) : "";
-  }
 
   if (currentPrimaryRole === "admin") {
     // Administrator: show role dropdown for viewing site from other roles' perspective
@@ -238,14 +233,13 @@ function renderUserHeader() {
       } else {
         staticBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border bg-sky-50 text-sky-700 border-sky-200 text-xs font-semibold shadow-xs";
         if (staticIcon) staticIcon.setAttribute("data-lucide", "headphones");
-        if (staticName) staticName.textContent = "Оператор ТП";
+        if (staticName) staticName.textContent = "Оператор";
       }
     }
   } else {
     // Not logged in
     if (adminSwitcher) adminSwitcher.classList.add("hidden");
     if (staticBadge) staticBadge.classList.add("hidden");
-    if (userNameEl) userNameEl.textContent = "";
   }
   lucide.createIcons();
 }

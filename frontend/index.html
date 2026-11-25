@@ -70,31 +70,30 @@
 
       <!-- Роль пользователя и выход -->
       <div id="userHeaderSection" class="flex items-center space-x-2 sm:space-x-2.5">
-        <!-- Блок для Оператора и Модератора: только статичный бейдж роли (без выпадающего списка) -->
+        <!-- Блок для Оператора и Модератора: только цветной бейдж роли в рамке -->
         <div id="userStaticRoleBadge" class="hidden items-center space-x-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-xs">
           <i id="userStaticRoleIcon" data-lucide="headphones" class="w-3.5 h-3.5"></i>
-          <span id="userStaticRoleName">Оператор ТП</span>
+          <span id="userStaticRoleName">Оператор</span>
         </div>
 
         <!-- Блок для Администратора: бейдж админа + выпадающий список для просмотра сайта от лица выбранной роли -->
         <div id="adminRoleSwitcherContainer" class="hidden items-center space-x-2">
-          <span class="hidden xl:inline-flex items-center space-x-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold">
+          <span class="inline-flex items-center space-x-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold">
             <i data-lucide="shield-check" class="w-3.5 h-3.5 text-indigo-600"></i>
-            <span>Админ-доступ</span>
+            <span>Админ</span>
           </span>
           <div class="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200" title="Режим просмотра сайта от лица выбранной роли">
             <span class="text-xs text-slate-500 mr-2 ml-1 hidden sm:inline font-medium">Просмотр:</span>
             <select id="userRoleSelect" onchange="switchAdminViewingRole(this.value)" class="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
               <option value="admin">Администратор</option>
               <option value="moderator">Модератор</option>
-              <option value="operator">Оператор ТП</option>
+              <option value="operator">Оператор</option>
             </select>
           </div>
         </div>
 
-        <!-- Имя пользователя и кнопка выхода -->
-        <div class="flex items-center space-x-1 pl-1 border-l border-slate-200">
-          <span id="headerUserName" class="text-xs font-medium text-slate-600 hidden md:inline px-1"></span>
+        <!-- Кнопка выхода (без текстовой подписи имени/роли) -->
+        <div class="flex items-center pl-1 border-l border-slate-200">
           <button onclick="logoutUser()" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition flex items-center space-x-1" title="Выйти из учетной записи">
             <i data-lucide="log-out" class="w-4 h-4"></i>
             <span class="text-xs font-semibold hidden sm:inline">Выйти</span>
@@ -917,7 +916,7 @@
             <div class="text-[10px] text-amber-500/90 font-mono mt-0.5">moderator</div>
           </button>
           <button type="button" onclick="quickLogin('operator')" class="p-2 rounded-xl border border-sky-200 bg-sky-50/70 hover:bg-sky-100/70 text-sky-700 text-center transition group cursor-pointer" title="Войти как Оператор">
-            <div class="text-[11px] font-bold leading-tight">Оператор ТП</div>
+            <div class="text-[11px] font-bold leading-tight">Оператор</div>
             <div class="text-[10px] text-sky-500/90 font-mono mt-0.5">operator</div>
           </button>
         </div>
@@ -932,6 +931,6 @@
   </footer>
 
   <!-- Основной JS скрипт приложения -->
-  <script src="/app.js?v=20261125_1530"></script>
+  <script src="/app.js?v=20261125_1540"></script>
 </body>
 </html>
