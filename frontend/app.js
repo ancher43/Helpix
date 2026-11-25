@@ -1629,7 +1629,7 @@ async function load3dVisualization() {
       responsive: true,
       displayModeBar: true,
       displaylogo: false,
-      modeBarButtonsToRemove: ['sendDataToCloud']
+      modeBarButtons: [['resetCameraDefault3d']]
     };
 
     if (window.Plotly && container) {
