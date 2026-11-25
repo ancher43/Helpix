@@ -388,6 +388,11 @@
                 <i data-lucide="loader-2" class="w-5 h-5 animate-spin text-indigo-400"></i>
                 <span>Построение 3D-пространства...</span>
               </div>
+
+              <!-- Кнопка возврата камеры в начальное положение (домик) с равными отступами в углу -->
+              <button onclick="reset3dCamera()" class="absolute top-4 right-4 z-20 w-10 h-10 bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 rounded-xl shadow-lg backdrop-blur-md transition-all flex items-center justify-center group cursor-pointer" title="Вернуть камеру в начальное положение">
+                <i data-lucide="home" class="w-5 h-5 transition-transform duration-200 group-hover:scale-110"></i>
+              </button>
             </div>
 
             <!-- Легенда и подсказка управления -->
@@ -927,6 +932,6 @@
   </footer>
 
   <!-- Основной JS скрипт приложения -->
-  <script src="/app.js?v=20261125_1645"></script>
+  <script src="/app.js?v=20261125_1650"></script>
 </body>
 </html>

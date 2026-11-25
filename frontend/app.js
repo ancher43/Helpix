@@ -1627,13 +1627,13 @@ async function load3dVisualization() {
 
     const config = {
       responsive: true,
-      displayModeBar: true,
-      displaylogo: false,
-      modeBarButtons: [['resetCameraDefault3d']]
+      displayModeBar: false,
+      displaylogo: false
     };
 
     if (window.Plotly && container) {
       await Plotly.newPlot(container, traces, layout, config);
+      lucide.createIcons();
       
       // Clicking a centroid in 3D space opens detailed view of the cluster
       if (container.removeAllListeners) container.removeAllListeners('plotly_click');
@@ -1661,7 +1661,9 @@ function reset3dCamera() {
   const container = document.getElementById("plotly3dContainer");
   if (window.Plotly && container) {
     Plotly.relayout(container, {
-      'scene.camera.eye': { x: 1.6, y: 1.6, z: 1.3 }
+      'scene.camera.eye': { x: 1.6, y: 1.6, z: 1.3 },
+      'scene.camera.center': { x: 0, y: 0, z: 0 },
+      'scene.camera.up': { x: 0, y: 0, z: 1 }
     });
   }
 }
