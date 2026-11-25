@@ -650,30 +650,45 @@
       <div class="p-6 overflow-y-auto flex-1 prose prose-slate max-w-none text-sm" id="modalArticleContent">
       </div>
 
-      <!-- Блок оценки решения оператором (доступен ТОЛЬКО на странице поиска) -->
-      <div id="articleFeedbackContainer" class="p-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-        <div class="text-slate-500">
-          <span class="font-medium text-slate-700">Оценка решения:</span> помогла ли эта статья решить обращение?
-        </div>
+      <!-- Футер модалки статьи: кнопки управления (редактирование, удаление) в левом углу, действия/закрытие в правом -->
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
         
-        <div class="flex items-center space-x-2" id="feedbackButtonsGroup">
-          <button onclick="submitArticleFeedback(true)" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition flex items-center space-x-1.5">
-            <i data-lucide="thumbs-up" class="w-3.5 h-3.5"></i>
-            <span>Помогло</span>
+        <!-- Левый нижний угол: кнопки редактирования и удаления с форматированием аналогично окну кластера -->
+        <div id="articleModalAdminButtons" class="flex items-center space-x-2">
+          <!-- Кнопка редактирования статьи: бледно-фиолетовая с фиолетовым контуром -->
+          <button id="btnEditArticleViewModal" onclick="handleEditCurrentArticle()" class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer" title="Редактировать статью">
+            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+            <span>Редактировать статью</span>
           </button>
-          
-          <button onclick="submitArticleFeedback(false)" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-lg transition flex items-center space-x-1.5">
-            <i data-lucide="thumbs-down" class="w-3.5 h-3.5"></i>
-            <span>Ответ не помог</span>
+
+          <!-- Кнопка удаления для администратора: бледно-красная с контуром -->
+          <button id="btnDeleteArticleViewModal" onclick="handleDeleteCurrentArticle()" class="hidden px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer" title="Удалить статью">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Удалить статью</span>
           </button>
         </div>
-      </div>
 
-      <!-- Кнопка закрытия для режима просмотра статьи из каталога (когда оценивание скрыто) -->
-      <div id="articleCloseOnlyFooter" class="p-3 bg-slate-50 border-t border-slate-100 flex justify-end text-xs hidden">
-        <button onclick="closeArticleViewModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-semibold rounded-lg transition text-xs">
-          Закрыть
-        </button>
+        <!-- Правый нижний угол: оценка решения (для вкладки поиска) и кнопка закрытия -->
+        <div class="flex items-center space-x-3 ml-auto">
+          <!-- Блок оценки решения оператором (виден только на странице поиска) -->
+          <div id="articleFeedbackContainer" class="flex items-center space-x-2 hidden">
+            <span class="text-slate-500 font-medium hidden sm:inline">Оценка решения:</span>
+            <button onclick="submitArticleFeedback(true)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition flex items-center space-x-1 shadow-sm">
+              <i data-lucide="thumbs-up" class="w-3.5 h-3.5"></i>
+              <span>Помогло</span>
+            </button>
+            <button onclick="submitArticleFeedback(false)" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-lg transition flex items-center space-x-1 shadow-sm">
+              <i data-lucide="thumbs-down" class="w-3.5 h-3.5"></i>
+              <span>Ответ не помог</span>
+            </button>
+          </div>
+
+          <!-- Кнопка закрыть (с форматированием аналогично окну кластера) -->
+          <button onclick="closeArticleViewModal()" class="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-300 font-semibold rounded-xl transition cursor-pointer">
+            Закрыть
+          </button>
+        </div>
+
       </div>
     </div>
   </div>
@@ -943,6 +958,6 @@
   </footer>
 
   <!-- Основной JS скрипт приложения -->
-  <script src="/app.js?v=20261125_1710"></script>
+  <script src="/app.js?v=20261125_1720"></script>
 </body>
 </html>

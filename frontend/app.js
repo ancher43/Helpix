@@ -435,6 +435,24 @@ function applyRolePermissions(role) {
     if (createBtn) createBtn.style.display = "";
   }
 
+  // Update permissions for article view modal buttons if modal is open
+  const btnEditArt = document.getElementById("btnEditArticleViewModal");
+  const btnDeleteArt = document.getElementById("btnDeleteArticleViewModal");
+  if (btnEditArt) {
+    if (role === "admin" || role === "moderator") {
+      btnEditArt.classList.remove("hidden");
+    } else {
+      btnEditArt.classList.add("hidden");
+    }
+  }
+  if (btnDeleteArt) {
+    if (role === "admin") {
+      btnDeleteArt.classList.remove("hidden");
+    } else {
+      btnDeleteArt.classList.add("hidden");
+    }
+  }
+
   // Re-render articles table if currently in articles tab to show/hide action buttons
   if (currentTab === "articles" && allArticlesList.length > 0) {
     renderArticlesTable(allArticlesList);
@@ -786,18 +804,32 @@ async function openArticleView(articleId) {
   if (updatedAtEl) updatedAtEl.textContent = "—";
   modal.classList.remove("hidden");
 
-  // Show feedback rating bar ONLY if opened from Search tab; hide if opened from Articles catalog
+  // Show feedback rating bar ONLY if opened from Search tab
   const feedbackContainer = document.getElementById("articleFeedbackContainer");
-  const closeOnlyFooter = document.getElementById("articleCloseOnlyFooter");
+  if (feedbackContainer) {
+    if (currentTab === "search") {
+      feedbackContainer.classList.remove("hidden");
+    } else {
+      feedbackContainer.classList.add("hidden");
+    }
+  }
 
-  if (currentTab === "search") {
-    if (feedbackContainer) feedbackContainer.classList.remove("hidden");
-    if (closeOnlyFooter) closeOnlyFooter.classList.add("hidden");
-    if (btnGroup) btnGroup.style.display = "flex";
-  } else {
-    if (feedbackContainer) feedbackContainer.classList.add("hidden");
-    if (closeOnlyFooter) closeOnlyFooter.classList.remove("hidden");
-    if (btnGroup) btnGroup.style.display = "none";
+  // RBAC control for Edit and Delete buttons in article view modal
+  const btnEdit = document.getElementById("btnEditArticleViewModal");
+  const btnDelete = document.getElementById("btnDeleteArticleViewModal");
+  if (btnEdit) {
+    if (currentRole === "admin" || currentRole === "moderator") {
+      btnEdit.classList.remove("hidden");
+    } else {
+      btnEdit.classList.add("hidden");
+    }
+  }
+  if (btnDelete) {
+    if (currentRole === "admin") {
+      btnDelete.classList.remove("hidden");
+    } else {
+      btnDelete.classList.add("hidden");
+    }
   }
 
   try {
@@ -822,6 +854,18 @@ async function openArticleView(articleId) {
 function closeArticleViewModal() {
   document.getElementById("articleViewModal").classList.add("hidden");
   currentViewingArticleId = null;
+}
+
+function handleEditCurrentArticle() {
+  if (!currentViewingArticleId) return;
+  const idToEdit = currentViewingArticleId;
+  closeArticleViewModal();
+  editArticleModal(idToEdit);
+}
+
+async function handleDeleteCurrentArticle() {
+  if (!currentViewingArticleId) return;
+  await deleteArticleConfirm(currentViewingArticleId);
 }
 
 async function submitArticleFeedback(isHelpful) {
@@ -1818,7 +1862,14 @@ async function deleteArticleConfirm(articleId) {
       throw new Error(err.detail || "Недостаточно прав (только Администратор)");
     }
     showToast("Статья успешно удалена", "success");
-    loadArticles();
+    closeArticleViewModal();
+    if (currentTab === "articles") loadArticles();
+    if (currentTab === "search") {
+      const sInput = document.getElementById("searchInput");
+      if (sInput && sInput.value.trim()) {
+        executeSearch();
+      }
+    }
   } catch (err) {
     showToast("Ошибка удаления: " + err.message, "error");
   }
