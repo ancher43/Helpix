@@ -1618,9 +1618,10 @@ async function load3dVisualization() {
         bordercolor: '#334155',
         borderwidth: 1,
         orientation: 'v',
-        x: 1,
-        xanchor: 'right',
-        y: 0.98
+        x: 0.01,
+        xanchor: 'left',
+        y: 0.98,
+        yanchor: 'top'
       }
     };
 
