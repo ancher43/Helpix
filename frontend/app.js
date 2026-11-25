@@ -25,7 +25,7 @@ const ROLE_NAMES = {
 const TAB_TITLES = {
   search: "Поиск",
   dashboard: "Аналитика",
-  clusters: "Кластеры пробелов",
+  clusters: "Кластеры",
   articles: "Статьи",
   logs: "Все запросы"
 };
