@@ -30,9 +30,10 @@ const TAB_TITLES = {
   logs: "Все запросы"
 };
 
-let currentAuthToken = localStorage.getItem("vkr_token") || null;
+let currentAuthToken = localStorage.getItem("helpix_token") || null;
 let currentUser = null;
-let currentRole = localStorage.getItem("vkr_role") || "admin";
+let currentPrimaryRole = localStorage.getItem("helpix_primary_role") || null; // 'admin', 'moderator', 'operator'
+let currentRole = localStorage.getItem("helpix_active_role") || currentPrimaryRole || "operator"; // active view role
 
 // Authenticated fetch wrapper
 async function apiFetch(url, options = {}) {
@@ -40,7 +41,256 @@ async function apiFetch(url, options = {}) {
   if (currentAuthToken) {
     headers["Authorization"] = `Bearer ${currentAuthToken}`;
   }
-  return fetch(url, { ...options, headers });
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401 && !url.includes("/auth/login")) {
+    logoutUser();
+  }
+  return res;
+}
+
+// ==================== АВТОРИЗАЦИЯ И УПРАВЛЕНИЕ СЕССИЕЙ ====================
+
+function showLoginModal() {
+  const modal = document.getElementById("loginModal");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  const errBox = document.getElementById("loginErrorBox");
+  if (errBox) errBox.classList.add("hidden");
+  const uInput = document.getElementById("loginUsername");
+  if (uInput) setTimeout(() => uInput.focus(), 150);
+  lucide.createIcons();
+}
+
+function hideLoginModal() {
+  const modal = document.getElementById("loginModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  document.body.style.overflow = "";
+}
+
+function togglePasswordVisibility() {
+  const input = document.getElementById("loginPassword");
+  const icon = document.getElementById("passwordToggleIcon");
+  if (!input || !icon) return;
+  if (input.type === "password") {
+    input.type = "text";
+    icon.setAttribute("data-lucide", "eye-off");
+  } else {
+    input.type = "password";
+    icon.setAttribute("data-lucide", "eye");
+  }
+  lucide.createIcons();
+}
+
+async function quickLogin(role) {
+  const creds = DEMO_CREDENTIALS[role];
+  if (!creds) return;
+  const uInput = document.getElementById("loginUsername");
+  const pInput = document.getElementById("loginPassword");
+  if (uInput) uInput.value = creds.username;
+  if (pInput) pInput.value = creds.password;
+  await executeLogin(creds.username, creds.password);
+}
+
+async function handleLoginSubmit(event) {
+  if (event) event.preventDefault();
+  const uInput = document.getElementById("loginUsername");
+  const pInput = document.getElementById("loginPassword");
+  const username = uInput ? uInput.value.trim() : "";
+  const password = pInput ? pInput.value : "";
+  if (!username || !password) return;
+  await executeLogin(username, password);
+}
+
+async function executeLogin(username, password) {
+  const btn = document.getElementById("btnLoginSubmit");
+  const errBox = document.getElementById("loginErrorBox");
+  const errText = document.getElementById("loginErrorText");
+  if (errBox) errBox.classList.add("hidden");
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Проверка данных...</span>`;
+    lucide.createIcons();
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+
+    if (!res.ok) {
+      let msg = "Неверный логин или пароль";
+      try {
+        const errData = await res.json();
+        if (errData && errData.detail) msg = errData.detail;
+      } catch (_) {}
+      if (errBox && errText) {
+        errText.textContent = msg;
+        errBox.classList.remove("hidden");
+        lucide.createIcons();
+      }
+      return;
+    }
+
+    const data = await res.json();
+    currentAuthToken = data.access_token;
+    currentUser = data.user;
+    currentPrimaryRole = data.user.role;
+    currentRole = data.user.role;
+
+    localStorage.setItem("helpix_token", currentAuthToken);
+    localStorage.setItem("helpix_primary_role", currentPrimaryRole);
+    localStorage.setItem("helpix_active_role", currentRole);
+
+    hideLoginModal();
+    renderUserHeader();
+    applyRolePermissions(currentRole);
+
+    showToast(`Добро пожаловать, ${currentUser.full_name || currentUser.username}! (${ROLE_NAMES[currentRole]})`, "success");
+
+    // Load initial application data
+    await loadCategories();
+    await loadClustersCountBadge();
+    if (currentTab === "dashboard") loadDashboard();
+    if (currentTab === "clusters") loadClusters();
+    if (currentTab === "articles") loadArticles();
+    if (currentTab === "logs") loadSearchLogs();
+    await loadPopularArticles();
+  } catch (err) {
+    console.error("Login request error:", err);
+    if (errBox && errText) {
+      errText.textContent = "Ошибка связи с сервером. Повторите попытку.";
+      errBox.classList.remove("hidden");
+      lucide.createIcons();
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="log-in" class="w-4 h-4"></i><span>Войти в систему</span>`;
+      lucide.createIcons();
+    }
+  }
+}
+
+function logoutUser() {
+  localStorage.removeItem("helpix_token");
+  localStorage.removeItem("helpix_primary_role");
+  localStorage.removeItem("helpix_active_role");
+  localStorage.removeItem("vkr_token");
+  localStorage.removeItem("vkr_role");
+
+  currentAuthToken = null;
+  currentUser = null;
+  currentPrimaryRole = null;
+  currentRole = "operator";
+
+  // Reset password field
+  const pInput = document.getElementById("loginPassword");
+  if (pInput) pInput.value = "";
+
+  renderUserHeader();
+  showLoginModal();
+  showToast("Вы вышли из системы", "info");
+}
+
+function renderUserHeader() {
+  const staticBadge = document.getElementById("userStaticRoleBadge");
+  const staticIcon = document.getElementById("userStaticRoleIcon");
+  const staticName = document.getElementById("userStaticRoleName");
+  const adminSwitcher = document.getElementById("adminRoleSwitcherContainer");
+  const roleSelect = document.getElementById("userRoleSelect");
+  const userNameEl = document.getElementById("headerUserName");
+
+  if (userNameEl) {
+    userNameEl.textContent = currentUser ? (currentUser.full_name || currentUser.username) : "";
+  }
+
+  if (currentPrimaryRole === "admin") {
+    // Administrator: show role dropdown for viewing site from other roles' perspective
+    if (staticBadge) {
+      staticBadge.classList.add("hidden");
+      staticBadge.classList.remove("flex");
+    }
+    if (adminSwitcher) {
+      adminSwitcher.classList.remove("hidden");
+      adminSwitcher.classList.add("flex");
+    }
+    if (roleSelect) {
+      roleSelect.value = currentRole;
+    }
+  } else if (currentPrimaryRole) {
+    // Operator or Moderator: show ONLY static badge, NO dropdown
+    if (adminSwitcher) {
+      adminSwitcher.classList.add("hidden");
+      adminSwitcher.classList.remove("flex");
+    }
+    if (staticBadge) {
+      staticBadge.classList.remove("hidden");
+      staticBadge.classList.add("flex");
+      if (currentPrimaryRole === "moderator") {
+        staticBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border bg-amber-50 text-amber-700 border-amber-200 text-xs font-semibold shadow-xs";
+        if (staticIcon) staticIcon.setAttribute("data-lucide", "shield-check");
+        if (staticName) staticName.textContent = "Модератор";
+      } else {
+        staticBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border bg-sky-50 text-sky-700 border-sky-200 text-xs font-semibold shadow-xs";
+        if (staticIcon) staticIcon.setAttribute("data-lucide", "headphones");
+        if (staticName) staticName.textContent = "Оператор ТП";
+      }
+    }
+  } else {
+    // Not logged in
+    if (adminSwitcher) adminSwitcher.classList.add("hidden");
+    if (staticBadge) staticBadge.classList.add("hidden");
+    if (userNameEl) userNameEl.textContent = "";
+  }
+  lucide.createIcons();
+}
+
+async function switchAdminViewingRole(newRole) {
+  if (currentPrimaryRole !== "admin") return;
+  currentRole = newRole;
+  localStorage.setItem("helpix_active_role", newRole);
+
+  // Switch authentication token to match the viewed role for complete backend permission fidelity
+  const creds = DEMO_CREDENTIALS[newRole];
+  if (creds) {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(creds)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        currentAuthToken = data.access_token;
+        localStorage.setItem("helpix_token", currentAuthToken);
+      }
+    } catch (err) {
+      console.error("Error switching viewing role auth:", err);
+    }
+  }
+
+  applyRolePermissions(newRole);
+  renderUserHeader();
+  showToast(`Просмотр от лица: ${ROLE_NAMES[newRole]}`, "info");
+
+  // Refresh current tab data
+  if (currentTab === "dashboard") loadDashboard();
+  if (currentTab === "clusters") loadClusters();
+  if (currentTab === "articles") loadArticles();
+  if (currentTab === "logs") loadSearchLogs();
+  loadClustersCountBadge();
+}
+
+// Backward compatibility alias
+async function changeUserRole(role) {
+  if (currentPrimaryRole === "admin") {
+    await switchAdminViewingRole(role);
+  }
 }
 
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
@@ -49,16 +299,45 @@ document.addEventListener("DOMContentLoaded", async () => {
   
   // Set browser tab title
   document.title = `Helpix - ${TAB_TITLES[currentTab] || "Поиск"}`;
-  
-  // Set role dropdown value
-  const roleSelect = document.getElementById("userRoleSelect");
-  if (roleSelect) roleSelect.value = currentRole;
-  
-  // Login with initial role and apply permissions
-  await changeUserRole(currentRole);
-  
-  await loadCategories();
-  await loadClustersCountBadge();
+
+  // Check stored auth session
+  const storedToken = localStorage.getItem("helpix_token");
+  const storedPrimaryRole = localStorage.getItem("helpix_primary_role");
+  const storedActiveRole = localStorage.getItem("helpix_active_role");
+
+  if (storedToken && storedPrimaryRole) {
+    currentAuthToken = storedToken;
+    currentPrimaryRole = storedPrimaryRole;
+    currentRole = storedActiveRole || storedPrimaryRole;
+
+    try {
+      const res = await apiFetch(`${API_BASE}/api/v1/auth/me`);
+      if (res.ok) {
+        currentUser = await res.json();
+        hideLoginModal();
+        renderUserHeader();
+        applyRolePermissions(currentRole);
+
+        await loadCategories();
+        await loadClustersCountBadge();
+        await loadPopularArticles();
+      } else {
+        // Token expired or invalid -> open login modal
+        logoutUser();
+      }
+    } catch (_) {
+      // Offline fallback: keep session if valid
+      hideLoginModal();
+      renderUserHeader();
+      applyRolePermissions(currentRole);
+      await loadCategories();
+      await loadClustersCountBadge();
+      await loadPopularArticles();
+    }
+  } else {
+    // Not authenticated -> show login modal right at startup!
+    showLoginModal();
+  }
 
   // Listen to input changes in search input
   const searchInputEl = document.getElementById("searchInput");
@@ -126,47 +405,6 @@ function switchTab(tab) {
   lucide.createIcons();
 }
 
-async function changeUserRole(role) {
-  currentRole = role;
-  localStorage.setItem("vkr_role", role);
-  
-  const roleSelect = document.getElementById("userRoleSelect");
-  if (roleSelect && roleSelect.value !== role) {
-    roleSelect.value = role;
-  }
-
-  const creds = DEMO_CREDENTIALS[role];
-  if (!creds) return;
-
-  try {
-    const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(creds)
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      currentAuthToken = data.access_token;
-      currentUser = data.user;
-      localStorage.setItem("vkr_token", currentAuthToken);
-
-      applyRolePermissions(role);
-      showToast(`Роль: ${ROLE_NAMES[role]}`, "info");
-
-      // Refresh current tab data
-      if (currentTab === "dashboard") loadDashboard();
-      if (currentTab === "clusters") loadClusters();
-      if (currentTab === "articles") loadArticles();
-      if (currentTab === "logs") loadSearchLogs();
-      loadClustersCountBadge();
-    } else {
-      showToast("Ошибка авторизации роли", "error");
-    }
-  } catch (err) {
-    console.error("Auth error:", err);
-  }
-}
 
 function applyRolePermissions(role) {
   const tabDashboard = document.getElementById("tab-btn-dashboard");

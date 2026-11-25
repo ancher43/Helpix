@@ -68,15 +68,37 @@
         </button>
       </nav>
 
-      <!-- Роль пользователя -->
-      <div class="flex items-center space-x-3">
-        <div class="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200">
-          <span class="text-xs text-slate-500 mr-2 ml-1 hidden sm:inline">Роль:</span>
-          <select id="userRoleSelect" onchange="changeUserRole(this.value)" class="text-xs font-semibold bg-white border border-slate-200 rounded px-2 py-1 text-slate-700 focus:outline-none">
-            <option value="moderator">Модератор</option>
-            <option value="operator">Оператор ТП</option>
-            <option value="admin">Администратор</option>
-          </select>
+      <!-- Роль пользователя и выход -->
+      <div id="userHeaderSection" class="flex items-center space-x-2 sm:space-x-2.5">
+        <!-- Блок для Оператора и Модератора: только статичный бейдж роли (без выпадающего списка) -->
+        <div id="userStaticRoleBadge" class="hidden items-center space-x-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-xs">
+          <i id="userStaticRoleIcon" data-lucide="headphones" class="w-3.5 h-3.5"></i>
+          <span id="userStaticRoleName">Оператор ТП</span>
+        </div>
+
+        <!-- Блок для Администратора: бейдж админа + выпадающий список для просмотра сайта от лица выбранной роли -->
+        <div id="adminRoleSwitcherContainer" class="hidden items-center space-x-2">
+          <span class="hidden xl:inline-flex items-center space-x-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-indigo-600"></i>
+            <span>Админ-доступ</span>
+          </span>
+          <div class="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200" title="Режим просмотра сайта от лица выбранной роли">
+            <span class="text-xs text-slate-500 mr-2 ml-1 hidden sm:inline font-medium">Просмотр:</span>
+            <select id="userRoleSelect" onchange="switchAdminViewingRole(this.value)" class="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
+              <option value="admin">Администратор</option>
+              <option value="moderator">Модератор</option>
+              <option value="operator">Оператор ТП</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Имя пользователя и кнопка выхода -->
+        <div class="flex items-center space-x-1 pl-1 border-l border-slate-200">
+          <span id="headerUserName" class="text-xs font-medium text-slate-600 hidden md:inline px-1"></span>
+          <button onclick="logoutUser()" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition flex items-center space-x-1" title="Выйти из учетной записи">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span class="text-xs font-semibold hidden sm:inline">Выйти</span>
+          </button>
         </div>
       </div>
     </div>
@@ -828,12 +850,88 @@
     </div>
   </div>
 
+  <!-- ОКНО АВТОРИЗАЦИИ (LOGIN MODAL) -->
+  <div id="loginModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/65 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 p-7 sm:p-8 space-y-6 relative animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Логотип и заголовок -->
+      <div class="text-center space-y-2">
+        <div class="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-100 mx-auto">
+          <i data-lucide="layers" class="w-8 h-8"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Вход в <span class="text-indigo-600">Helpix</span></h2>
+        <p class="text-xs text-slate-500">Система управления базой знаний службы технической поддержки</p>
+      </div>
+
+      <!-- Сообщение об ошибке -->
+      <div id="loginErrorBox" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center space-x-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 text-rose-600"></i>
+        <span id="loginErrorText">Неверный логин или пароль</span>
+      </div>
+
+      <!-- Форма входа -->
+      <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5" for="loginUsername">Логин или Email</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <i data-lucide="user" class="w-4 h-4"></i>
+            </div>
+            <input type="text" id="loginUsername" required autocomplete="username" placeholder="admin, moderator или operator" 
+              class="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5" for="loginPassword">Пароль</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <i data-lucide="lock" class="w-4 h-4"></i>
+            </div>
+            <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="••••••••" 
+              class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
+            <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition" title="Показать/скрыть пароль">
+              <i id="passwordToggleIcon" data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" id="btnLoginSubmit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm shadow-md shadow-indigo-100 flex items-center justify-center space-x-2 transition cursor-pointer">
+          <i data-lucide="log-in" class="w-4 h-4"></i>
+          <span>Войти в систему</span>
+        </button>
+      </form>
+
+      <!-- Быстрый выбор демо-учётных записей -->
+      <div class="pt-4 border-t border-slate-100">
+        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center mb-2.5">
+          Быстрый вход под тестовой ролью:
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" onclick="quickLogin('admin')" class="p-2 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/70 text-indigo-700 text-center transition group cursor-pointer" title="Войти как Администратор">
+            <div class="text-[11px] font-bold leading-tight">Администратор</div>
+            <div class="text-[10px] text-indigo-500/90 font-mono mt-0.5">admin</div>
+          </button>
+          <button type="button" onclick="quickLogin('moderator')" class="p-2 rounded-xl border border-amber-200 bg-amber-50/70 hover:bg-amber-100/70 text-amber-700 text-center transition group cursor-pointer" title="Войти как Модератор">
+            <div class="text-[11px] font-bold leading-tight">Модератор</div>
+            <div class="text-[10px] text-amber-500/90 font-mono mt-0.5">moderator</div>
+          </button>
+          <button type="button" onclick="quickLogin('operator')" class="p-2 rounded-xl border border-sky-200 bg-sky-50/70 hover:bg-sky-100/70 text-sky-700 text-center transition group cursor-pointer" title="Войти как Оператор">
+            <div class="text-[11px] font-bold leading-tight">Оператор ТП</div>
+            <div class="text-[10px] text-sky-500/90 font-mono mt-0.5">operator</div>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Футер -->
   <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400">
     Выпускная квалификационная работа • Черемисин А. А. • Группа: ИС-231
   </footer>
 
   <!-- Основной JS скрипт приложения -->
-  <script src="/app.js?v=20261124_2050"></script>
+  <script src="/app.js?v=20261125_1530"></script>
 </body>
 </html>
