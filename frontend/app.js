@@ -762,14 +762,39 @@ async function executeSearch() {
             ${escapeHtml(item.content_snippet || item.summary || "")}
           </p>
 
-          <!-- Техническая плашка оценки ранжирования (RRF) -->
+          <!-- Техническая плашка оценки ранжирования -->
           <div class="pl-8 pt-2 flex flex-wrap items-center gap-3 text-[11px] text-slate-500 border-t border-slate-50">
-            <span class="font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
-              RRF Score: ${item.rrf_score}
-            </span>
-            ${item.text_rank ? `<span>Текстовый ранг: <strong>#${item.text_rank}</strong></span>` : `<span class="text-slate-400">Текст: —</span>`}
-            ${item.semantic_rank ? `<span>Семантический ранг: <strong>#${item.semantic_rank}</strong></span>` : `<span class="text-slate-400">Семантика: —</span>`}
-            ${simPercent !== null ? `<span class="text-emerald-700 font-medium">Сходство: ${simPercent}%</span>` : ""}
+            ${(() => {
+              const activeMode = (data.search_mode || searchMode || "hybrid").toLowerCase();
+              if (activeMode === "text") {
+                return `
+                  <span class="font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
+                    Текстовый ранг: #${item.text_rank || index + 1}
+                  </span>
+                  <span>RRF Score: <strong class="font-mono text-slate-700">${item.rrf_score}</strong></span>
+                  ${item.semantic_rank ? `<span>Семантический ранг: <strong>#${item.semantic_rank}</strong></span>` : `<span class="text-slate-400">Семантика: —</span>`}
+                  ${simPercent !== null ? `<span class="text-emerald-700 font-medium">Сходство: ${simPercent}%</span>` : ""}
+                `;
+              } else if (activeMode === "semantic") {
+                return `
+                  <span class="font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
+                    Семантический ранг: #${item.semantic_rank || index + 1}
+                  </span>
+                  ${simPercent !== null ? `<span class="text-emerald-700 font-medium">Сходство: ${simPercent}%</span>` : ""}
+                  <span>RRF Score: <strong class="font-mono text-slate-700">${item.rrf_score}</strong></span>
+                  ${item.text_rank ? `<span>Текстовый ранг: <strong>#${item.text_rank}</strong></span>` : `<span class="text-slate-400">Текст: —</span>`}
+                `;
+              } else {
+                return `
+                  <span class="font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
+                    RRF Score: ${item.rrf_score}
+                  </span>
+                  ${item.text_rank ? `<span>Текстовый ранг: <strong>#${item.text_rank}</strong></span>` : `<span class="text-slate-400">Текст: —</span>`}
+                  ${item.semantic_rank ? `<span>Семантический ранг: <strong>#${item.semantic_rank}</strong></span>` : `<span class="text-slate-400">Семантика: —</span>`}
+                  ${simPercent !== null ? `<span class="text-emerald-700 font-medium">Сходство: ${simPercent}%</span>` : ""}
+                `;
+              }
+            })()}
           </div>
         </div>
       `;
