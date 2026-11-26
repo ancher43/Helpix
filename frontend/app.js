@@ -27,7 +27,7 @@ const TAB_TITLES = {
   dashboard: "Аналитика",
   clusters: "Кластеры",
   articles: "Статьи",
-  logs: "Все запросы"
+  logs: "История запросов"
 };
 
 let currentAuthToken = localStorage.getItem("helpix_token") || null;
