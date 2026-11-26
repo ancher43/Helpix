@@ -766,34 +766,24 @@ async function executeSearch() {
           <div class="pl-8 pt-2 flex flex-wrap items-center gap-3 text-[11px] text-slate-500 border-t border-slate-50">
             ${(() => {
               const activeMode = (data.search_mode || searchMode || "hybrid").toLowerCase();
-              if (activeMode === "text") {
-                return `
-                  <span class="font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
-                    Текстовый ранг: #${item.text_rank || index + 1}
-                  </span>
-                  <span>RRF Score: <strong class="font-mono text-slate-700">${item.rrf_score}</strong></span>
-                  ${item.semantic_rank ? `<span>Семантический ранг: <strong>#${item.semantic_rank}</strong></span>` : `<span class="text-slate-400">Семантика: —</span>`}
-                  ${simPercent !== null ? `<span class="text-emerald-700 font-medium">Сходство: ${simPercent}%</span>` : ""}
-                `;
-              } else if (activeMode === "semantic") {
-                return `
-                  <span class="font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
-                    Семантический ранг: #${item.semantic_rank || index + 1}
-                  </span>
-                  ${simPercent !== null ? `<span class="text-emerald-700 font-medium">Сходство: ${simPercent}%</span>` : ""}
-                  <span>RRF Score: <strong class="font-mono text-slate-700">${item.rrf_score}</strong></span>
-                  ${item.text_rank ? `<span>Текстовый ранг: <strong>#${item.text_rank}</strong></span>` : `<span class="text-slate-400">Текст: —</span>`}
-                `;
-              } else {
-                return `
-                  <span class="font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
-                    RRF Score: ${item.rrf_score}
-                  </span>
-                  ${item.text_rank ? `<span>Текстовый ранг: <strong>#${item.text_rank}</strong></span>` : `<span class="text-slate-400">Текст: —</span>`}
-                  ${item.semantic_rank ? `<span>Семантический ранг: <strong>#${item.semantic_rank}</strong></span>` : `<span class="text-slate-400">Семантика: —</span>`}
-                  ${simPercent !== null ? `<span class="text-emerald-700 font-medium">Сходство: ${simPercent}%</span>` : ""}
-                `;
-              }
+
+              const rrfHtml = activeMode === "hybrid"
+                ? `<span class="font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">RRF Score: ${item.rrf_score}</span>`
+                : `<span>RRF Score: <strong class="font-mono text-slate-700">${item.rrf_score}</strong></span>`;
+
+              const textHtml = activeMode === "text"
+                ? `<span class="font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">Текстовый ранг: #${item.text_rank || index + 1}</span>`
+                : (item.text_rank ? `<span>Текстовый ранг: <strong>#${item.text_rank}</strong></span>` : `<span class="text-slate-400">Текст: —</span>`);
+
+              const semanticHtml = activeMode === "semantic"
+                ? `<span class="font-mono bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">Семантический ранг: #${item.semantic_rank || index + 1}</span>`
+                : (item.semantic_rank ? `<span>Семантический ранг: <strong>#${item.semantic_rank}</strong></span>` : `<span class="text-slate-400">Семантика: —</span>`);
+
+              const simHtml = simPercent !== null
+                ? `<span class="text-emerald-700 font-medium">Сходство: ${simPercent}%</span>`
+                : "";
+
+              return `${rrfHtml} ${textHtml} ${semanticHtml} ${simHtml}`;
             })()}
           </div>
         </div>
