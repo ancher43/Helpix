@@ -82,7 +82,10 @@
             <span>Админ</span>
           </span>
           <div class="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200" title="Режим просмотра сайта от лица выбранной роли">
-            <span class="text-xs text-slate-500 mr-2 ml-1 hidden sm:inline font-medium">Просмотр:</span>
+            <span class="flex flex-col text-[10px] leading-tight text-slate-500 mr-2 ml-1.5 hidden sm:inline-flex font-medium text-right select-none">
+              <span>Режим</span>
+              <span>просмотра:</span>
+            </span>
             <select id="userRoleSelect" onchange="switchAdminViewingRole(this.value)" class="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
               <option value="admin">Администратор</option>
               <option value="moderator">Модератор</option>
@@ -958,6 +961,6 @@
   </footer>
 
   <!-- Основной JS скрипт приложения -->
-  <script src="/app.js?v=20261126_1650"></script>
+  <script src="/app.js?v=20261126_1715"></script>
 </body>
 </html>
