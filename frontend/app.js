@@ -493,9 +493,9 @@ function setSearchMode(mode) {
     const btn = document.getElementById(`mode-${m}`);
     if (btn) {
       if (m === mode) {
-        btn.className = "px-3 py-1 text-xs font-medium rounded-md bg-white text-indigo-700 shadow-sm border border-slate-200/60";
+        btn.className = "px-3 py-1 text-xs font-medium rounded-md bg-white text-indigo-700 shadow-sm border border-slate-200/60 cursor-pointer transition";
       } else {
-        btn.className = "px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900";
+        btn.className = "px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 cursor-pointer transition";
       }
     }
   });

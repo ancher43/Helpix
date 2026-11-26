@@ -132,28 +132,28 @@
         </div>
 
         <!-- Настройки поиска: Режим и Фильтры -->
-        <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 text-sm">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">Алгоритм:</span>
-            <div class="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
-              <button onclick="setSearchMode('hybrid')" id="mode-hybrid" class="px-3 py-1 text-xs font-medium rounded-md bg-white text-indigo-700 shadow-sm border border-slate-200/60">
-                ⚡ Гибридный (RRF)
-              </button>
-              <button onclick="setSearchMode('text')" id="mode-text" class="px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900">
-                📝 Текстовый (BM25)
-              </button>
-              <button onclick="setSearchMode('semantic')" id="mode-semantic" class="px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900">
-                🧠 Семантический (Vector)
-              </button>
-            </div>
+        <div class="flex flex-wrap items-center gap-4 sm:gap-6 pt-2.5 border-t border-slate-100 text-sm">
+          <!-- Выбор категории слева от алгоритма -->
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Категория:</span>
+            <select id="searchCategory" onchange="handleCategoryChange()" class="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium min-w-[280px] sm:min-w-[320px] cursor-pointer shadow-sm">
+              <option value="">Все категории</option>
+            </select>
           </div>
 
-          <div class="flex items-center space-x-3">
-            <div class="flex items-center space-x-1.5">
-              <span class="text-xs text-slate-500">Категория:</span>
-              <select id="searchCategory" onchange="handleCategoryChange()" class="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-700 focus:outline-none max-w-[180px] truncate">
-                <option value="">Все категории</option>
-              </select>
+          <!-- Выбор алгоритма поиска -->
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Алгоритм:</span>
+            <div class="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 shadow-sm">
+              <button onclick="setSearchMode('hybrid')" id="mode-hybrid" class="px-3 py-1 text-xs font-medium rounded-md bg-white text-indigo-700 shadow-sm border border-slate-200/60 cursor-pointer transition">
+                ⚡ Гибридный (RRF)
+              </button>
+              <button onclick="setSearchMode('text')" id="mode-text" class="px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 cursor-pointer transition">
+                📝 Текстовый (BM25)
+              </button>
+              <button onclick="setSearchMode('semantic')" id="mode-semantic" class="px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 cursor-pointer transition">
+                🧠 Семантический (Vector)
+              </button>
             </div>
           </div>
         </div>
@@ -958,6 +958,6 @@
   </footer>
 
   <!-- Основной JS скрипт приложения -->
-  <script src="/app.js?v=20261126_1645"></script>
+  <script src="/app.js?v=20261126_1650"></script>
 </body>
 </html>
