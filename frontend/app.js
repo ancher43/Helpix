@@ -1794,7 +1794,7 @@ function sortArticlesList(list) {
 
 async function loadArticles() {
   const tbody = document.getElementById("articlesTableBody");
-  tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">Загрузка каталога статей...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400">Загрузка каталога статей...</td></tr>`;
 
   try {
     const res = await apiFetch(`${API_BASE}/api/v1/articles?limit=500`);
@@ -1802,7 +1802,7 @@ async function loadArticles() {
     allArticlesList = await res.json();
     filterArticlesTable();
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-rose-600 text-xs">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-rose-600 text-xs">${err.message}</td></tr>`;
   }
 }
 
@@ -1814,7 +1814,7 @@ function renderArticlesTable(articles) {
   }
 
   if (articles.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400 text-xs">Статьи не найдены</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400 text-xs">Статьи не найдены</td></tr>`;
     return;
   }
 
@@ -1849,7 +1849,6 @@ function renderArticlesTable(articles) {
 
     html += `
       <tr class="hover:bg-slate-50 transition">
-        <td class="px-4 py-3 font-mono text-xs text-slate-400">#${a.id}</td>
         <td class="px-4 py-3 font-medium text-slate-900 cursor-pointer hover:text-indigo-600" onclick="openArticleView(${a.id})">
           ${escapeHtml(a.title)}
         </td>
@@ -2059,7 +2058,7 @@ function sortLogsList(list) {
 async function loadSearchLogs() {
   const tbody = document.getElementById("logsTableBody");
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">Загрузка журнала запросов...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">Загрузка журнала запросов...</td></tr>`;
 
   try {
     const res = await apiFetch(`${API_BASE}/api/v1/search/logs?limit=500`);
@@ -2084,7 +2083,7 @@ async function loadSearchLogs() {
 
     filterLogsTable();
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-rose-600">${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-rose-600">${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -2119,7 +2118,7 @@ function renderLogsTable(logs) {
   }
 
   if (logs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">Запросы не найдены</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">Запросы не найдены</td></tr>`;
     return;
   }
 
@@ -2183,7 +2182,6 @@ function renderLogsTable(logs) {
 
     html += `
       <tr class="hover:bg-slate-50/80 transition">
-        <td class="px-4 py-2.5 font-mono text-[11px] text-slate-400">#${l.id}</td>
         <td class="px-4 py-2.5 font-medium text-slate-900 max-w-sm">
           «${escapeHtml(l.query_text)}»
         </td>
