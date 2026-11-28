@@ -222,7 +222,6 @@ function logoutUser() {
 
 function renderUserHeader() {
   const profileBtn = document.getElementById("userProfileHeaderBtn");
-  const avatarEl = document.getElementById("userHeaderAvatar");
   const nameEl = document.getElementById("userHeaderShortName");
   const roleTextEl = document.getElementById("userHeaderRoleText");
   const adminSwitcher = document.getElementById("adminRoleSwitcherContainer");
@@ -253,7 +252,6 @@ function renderUserHeader() {
 
   const shortName = formatShortName(currentUser.full_name, currentUser.username);
   if (nameEl) nameEl.textContent = shortName;
-  if (avatarEl) avatarEl.textContent = getUserInitials(currentUser.full_name, currentUser.username);
   if (roleTextEl) roleTextEl.textContent = ROLE_NAMES[currentRole] || currentRole;
 
   if (currentPrimaryRole === "admin") {
@@ -1918,12 +1916,7 @@ function renderArticlesTable(articles) {
         </td>
         <td class="px-4 py-3 text-xs text-slate-500">${escapeHtml(a.category_name || "—")}</td>
         <td class="px-4 py-3 text-xs text-slate-700 whitespace-nowrap" title="${escapeHtml(a.author_full_name || a.author_name || 'Не указан')} (${escapeHtml(a.author_position || 'Сотрудник')})">
-          <div class="flex items-center space-x-1.5">
-            <span class="w-5 h-5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0">
-              ${getUserInitials(a.author_full_name || a.author_name)}
-            </span>
-            <span class="font-medium text-slate-800">${escapeHtml(a.author_name || "—")}</span>
-          </div>
+          <span class="font-medium text-slate-800">${escapeHtml(a.author_name || "—")}</span>
         </td>
         <td class="px-4 py-3 text-center text-xs font-semibold text-slate-600">${a.views_count}</td>
         <td class="px-4 py-3 text-center text-xs font-bold text-emerald-600">${rate}% 👍</td>
@@ -2261,12 +2254,7 @@ function renderLogsTable(logs) {
           «${escapeHtml(l.query_text)}»
         </td>
         <td class="px-4 py-2.5 text-slate-700 whitespace-nowrap" title="${escapeHtml(l.operator_full_name || l.operator_name || 'Оператор')} (${escapeHtml(l.operator_position || 'Сотрудник ТП')})">
-          <div class="flex items-center space-x-1.5">
-            <span class="w-5 h-5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0">
-              ${getUserInitials(l.operator_full_name || l.operator_name)}
-            </span>
-            <span class="font-medium text-slate-800 text-xs">${escapeHtml(l.operator_name || "—")}</span>
-          </div>
+          <span class="font-medium text-slate-800 text-xs">${escapeHtml(l.operator_name || "—")}</span>
         </td>
         <td class="px-4 py-2.5 text-center">${statusBadge}</td>
         <td class="px-4 py-2.5">${targetHtml}</td>
@@ -2360,13 +2348,11 @@ async function openUserProfileModal() {
   if (!modal) return;
 
   // Header info
-  const avatarEl = document.getElementById("profAvatar");
   const nameEl = document.getElementById("profFullName");
   const roleBadgeEl = document.getElementById("profRoleBadge");
   const posEl = document.getElementById("profPosition");
   const deptEl = document.getElementById("profDepartment");
 
-  if (avatarEl) avatarEl.textContent = getUserInitials(currentUser.full_name, currentUser.username);
   if (nameEl) nameEl.textContent = currentUser.full_name || currentUser.username;
   if (posEl) posEl.textContent = currentUser.position || "Специалист службы поддержки";
   if (deptEl) deptEl.textContent = currentUser.department || "Отдел технической поддержки";
@@ -2491,9 +2477,7 @@ async function handleUpdateProfileSubmit(event) {
     
     // Refresh modal header
     const nameEl = document.getElementById("profFullName");
-    const avatarEl = document.getElementById("profAvatar");
     if (nameEl) nameEl.textContent = currentUser.full_name;
-    if (avatarEl) avatarEl.textContent = getUserInitials(currentUser.full_name, currentUser.username);
     
     showToast("Личные данные успешно обновлены!", "success");
   } catch (err) {
@@ -2669,7 +2653,6 @@ function renderUsersTable(users) {
 
   let html = "";
   users.forEach(u => {
-    const initials = getUserInitials(u.full_name, u.username);
     const shortName = formatShortName(u.full_name, u.username);
 
     let roleBadge = "";
@@ -2694,14 +2677,9 @@ function renderUsersTable(users) {
     html += `
       <tr class="hover:bg-slate-50/80 transition">
         <td class="px-4 py-3">
-          <div class="flex items-center space-x-2.5">
-            <div class="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-xs flex items-center justify-center shrink-0">
-              ${initials}
-            </div>
-            <div>
-              <div class="font-bold text-slate-900">${escapeHtml(u.full_name || u.username)}</div>
-              <div class="text-[11px] text-slate-400 font-mono">@${escapeHtml(u.username)}</div>
-            </div>
+          <div>
+            <div class="font-bold text-slate-900">${escapeHtml(u.full_name || u.username)}</div>
+            <div class="text-[11px] text-slate-400 font-mono">@${escapeHtml(u.username)}</div>
           </div>
         </td>
         <td class="px-4 py-3">

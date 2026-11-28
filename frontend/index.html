@@ -74,11 +74,9 @@
       <!-- Роль пользователя, профиль и выход -->
       <div id="userHeaderSection" class="flex items-center space-x-2 sm:space-x-2.5">
         
-        <!-- Кнопка перехода в личный профиль (кликабельная Фамилия И.О. + аватарка) -->
-        <button onclick="openUserProfileModal()" id="userProfileHeaderBtn" class="hidden items-center space-x-2 py-1 px-2 hover:bg-slate-100 border border-slate-200/90 rounded-xl transition cursor-pointer select-none group shadow-2xs" title="Открыть профиль сотрудника">
-          <div id="userHeaderAvatar" class="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-            ??
-          </div>
+        <!-- Кнопка перехода в личный профиль (кликабельная Фамилия И.О.) -->
+        <button onclick="openUserProfileModal()" id="userProfileHeaderBtn" class="hidden items-center space-x-2 py-1 px-2.5 hover:bg-slate-100 border border-slate-200/90 rounded-xl transition cursor-pointer select-none group shadow-2xs" title="Открыть профиль сотрудника">
+          <i data-lucide="user" class="w-4 h-4 text-slate-500 group-hover:text-indigo-600 transition shrink-0"></i>
           <div class="text-left flex flex-col items-start leading-tight">
             <span id="userHeaderShortName" class="text-xs font-bold text-slate-800 group-hover:text-indigo-600 transition">
               Сотрудник
@@ -1081,10 +1079,10 @@
         </button>
 
         <div class="flex items-center space-x-4">
-          <!-- Аватар с инициалами -->
+          <!-- Аватар профиля -->
           <div class="relative">
-            <div id="profAvatar" class="w-16 h-16 rounded-2xl bg-indigo-600 text-white font-bold text-2xl flex items-center justify-center shadow-lg border-2 border-white/20">
-              ??
+            <div id="profAvatar" class="w-14 h-14 rounded-2xl bg-white/10 text-white flex items-center justify-center shadow-lg border border-white/20">
+              <i data-lucide="user" class="w-7 h-7 text-white"></i>
             </div>
             <span id="profOnlineDot" class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-slate-900 rounded-full" title="Статус: На смене"></span>
           </div>
@@ -1359,6 +1357,6 @@
   </footer>
 
   <!-- Основной JS скрипт приложения -->
-  <script src="/app.js?v=20261128_2120"></script>
+  <script src="/app.js?v=20261128_2150"></script>
 </body>
 </html>
