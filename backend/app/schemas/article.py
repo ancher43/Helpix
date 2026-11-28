@@ -41,6 +41,12 @@ class ArticleResponse(ArticleBase):
     views_count: int
     helpful_count: int
     unhelpful_count: int
+    created_by_id: Optional[int] = None
+    updated_by_id: Optional[int] = None
+    author_name: Optional[str] = None
+    author_full_name: Optional[str] = None
+    author_position: Optional[str] = None
+    editor_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     category: Optional[CategoryResponse] = None
@@ -57,6 +63,11 @@ class ArticleListItem(BaseModel):
     views_count: int
     helpful_count: int
     unhelpful_count: int
+    author_id: Optional[int] = None
+    author_name: Optional[str] = None
+    author_full_name: Optional[str] = None
+    author_position: Optional[str] = None
+    editor_name: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

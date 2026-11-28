@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.core.database import Base, get_engine, get_sessionmaker
 from app.models.user import User, UserRole
 from app.core.security import get_password_hash
-from app.api import auth, articles, search, gaps, stats
+from app.api import auth, articles, search, gaps, stats, users
 from sqlalchemy import select
 
 @asynccontextmanager
@@ -27,23 +27,32 @@ async def lifespan(app: FastAPI):
         result = await session.execute(select(User).limit(1))
         if not result.scalar_one_or_none():
             admin_user = User(
-                email="admin@helpdesk.local",
+                email="admin@telecom.corp",
                 username="admin",
-                full_name="Администратор Системы",
+                full_name="Смирнов Алексей Викторович",
+                position="Главный системный администратор",
+                department="ИТ-департамент и инфраструктура",
+                phone="101",
                 hashed_password=get_password_hash("admin123"),
                 role=UserRole.ADMIN
             )
             moderator_user = User(
-                email="moderator@helpdesk.local",
+                email="moderator@telecom.corp",
                 username="moderator",
-                full_name="Модератор Базы Знаний",
+                full_name="Ковалева Елена Сергеевна",
+                position="Ведущий инженер / Тимлид базы знаний",
+                department="Служба экспертной поддержки",
+                phone="204",
                 hashed_password=get_password_hash("moderator123"),
                 role=UserRole.MODERATOR
             )
             operator_user = User(
-                email="operator@helpdesk.local",
+                email="operator@telecom.corp",
                 username="operator",
-                full_name="Оператор 1-й Линии",
+                full_name="Иванов Денис Игоревич",
+                position="Специалист 1-й линии техподдержки",
+                department="Отдел технической поддержки ШПД",
+                phone="312",
                 hashed_password=get_password_hash("operator123"),
                 role=UserRole.OPERATOR
             )
@@ -72,6 +81,7 @@ app.add_middleware(
 
 # Include API Routers
 app.include_router(auth.router, prefix=settings.API_V1_STR)
+app.include_router(users.router, prefix=settings.API_V1_STR)
 app.include_router(articles.router, prefix=settings.API_V1_STR)
 app.include_router(search.router, prefix=settings.API_V1_STR)
 app.include_router(gaps.router, prefix=settings.API_V1_STR)

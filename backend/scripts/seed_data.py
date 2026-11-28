@@ -256,21 +256,30 @@ async def seed_database(reset: bool = True):
             admin_user = User(
                 email="admin@telecom.corp",
                 username="admin",
-                full_name="Администратор Системы",
+                full_name="Смирнов Алексей Викторович",
+                position="Главный системный администратор",
+                department="ИТ-департамент и инфраструктура",
+                phone="101",
                 hashed_password=get_password_hash("admin123"),
                 role=UserRole.ADMIN
             )
             moderator_user = User(
                 email="moderator@telecom.corp",
                 username="moderator",
-                full_name="Модератор Базы Знаний",
+                full_name="Ковалева Елена Сергеевна",
+                position="Ведущий инженер / Тимлид базы знаний",
+                department="Служба экспертной поддержки",
+                phone="204",
                 hashed_password=get_password_hash("moderator123"),
                 role=UserRole.MODERATOR
             )
             operator_user = User(
                 email="operator@telecom.corp",
                 username="operator",
-                full_name="Оператор 1-й Линии",
+                full_name="Иванов Денис Игоревич",
+                position="Специалист 1-й линии техподдержки",
+                department="Отдел технической поддержки ШПД",
+                phone="312",
                 hashed_password=get_password_hash("operator123"),
                 role=UserRole.OPERATOR
             )

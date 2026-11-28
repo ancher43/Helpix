@@ -27,8 +27,31 @@ const TAB_TITLES = {
   dashboard: "Аналитика",
   clusters: "Кластеры",
   articles: "Статьи",
-  logs: "История запросов"
+  logs: "История запросов",
+  users: "Сотрудники"
 };
+
+function formatShortName(fullName, fallback = "Сотрудник") {
+  if (!fullName || !fullName.trim()) return fallback;
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length >= 3) {
+    return `${parts[0]} ${parts[1][0]}.${parts[2][0]}.`;
+  } else if (parts.length === 2) {
+    return `${parts[0]} ${parts[1][0]}.`;
+  }
+  return fullName;
+}
+
+function getUserInitials(fullName, fallback = "??") {
+  if (fullName && fullName.trim()) {
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return fullName.slice(0, 2).toUpperCase();
+  }
+  return (fallback || "??").slice(0, 2).toUpperCase();
+}
 
 let currentAuthToken = localStorage.getItem("helpix_token") || null;
 let currentUser = null;
@@ -198,18 +221,42 @@ function logoutUser() {
 }
 
 function renderUserHeader() {
-  const staticBadge = document.getElementById("userStaticRoleBadge");
-  const staticIcon = document.getElementById("userStaticRoleIcon");
-  const staticName = document.getElementById("userStaticRoleName");
+  const profileBtn = document.getElementById("userProfileHeaderBtn");
+  const avatarEl = document.getElementById("userHeaderAvatar");
+  const nameEl = document.getElementById("userHeaderShortName");
+  const roleTextEl = document.getElementById("userHeaderRoleText");
   const adminSwitcher = document.getElementById("adminRoleSwitcherContainer");
   const roleSelect = document.getElementById("userRoleSelect");
+  const tabUsersBtn = document.getElementById("tab-btn-users");
+
+  if (!currentAuthToken || !currentUser) {
+    if (profileBtn) {
+      profileBtn.classList.add("hidden");
+      profileBtn.classList.remove("flex");
+    }
+    if (adminSwitcher) {
+      adminSwitcher.classList.add("hidden");
+      adminSwitcher.classList.remove("flex");
+    }
+    if (tabUsersBtn) {
+      tabUsersBtn.classList.add("hidden");
+      tabUsersBtn.classList.remove("flex");
+    }
+    return;
+  }
+
+  // Show profile button
+  if (profileBtn) {
+    profileBtn.classList.remove("hidden");
+    profileBtn.classList.add("flex");
+  }
+
+  const shortName = formatShortName(currentUser.full_name, currentUser.username);
+  if (nameEl) nameEl.textContent = shortName;
+  if (avatarEl) avatarEl.textContent = getUserInitials(currentUser.full_name, currentUser.username);
+  if (roleTextEl) roleTextEl.textContent = ROLE_NAMES[currentRole] || currentRole;
 
   if (currentPrimaryRole === "admin") {
-    // Administrator: show role dropdown for viewing site from other roles' perspective
-    if (staticBadge) {
-      staticBadge.classList.add("hidden");
-      staticBadge.classList.remove("flex");
-    }
     if (adminSwitcher) {
       adminSwitcher.classList.remove("hidden");
       adminSwitcher.classList.add("flex");
@@ -217,30 +264,21 @@ function renderUserHeader() {
     if (roleSelect) {
       roleSelect.value = currentRole;
     }
-  } else if (currentPrimaryRole) {
-    // Operator or Moderator: show ONLY static badge, NO dropdown
+    if (tabUsersBtn) {
+      tabUsersBtn.classList.remove("hidden");
+      tabUsersBtn.classList.add("flex");
+    }
+  } else {
     if (adminSwitcher) {
       adminSwitcher.classList.add("hidden");
       adminSwitcher.classList.remove("flex");
     }
-    if (staticBadge) {
-      staticBadge.classList.remove("hidden");
-      staticBadge.classList.add("flex");
-      if (currentPrimaryRole === "moderator") {
-        staticBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border bg-amber-50 text-amber-700 border-amber-200 text-xs font-semibold shadow-xs";
-        if (staticIcon) staticIcon.setAttribute("data-lucide", "shield-check");
-        if (staticName) staticName.textContent = "Модератор";
-      } else {
-        staticBadge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border bg-sky-50 text-sky-700 border-sky-200 text-xs font-semibold shadow-xs";
-        if (staticIcon) staticIcon.setAttribute("data-lucide", "headphones");
-        if (staticName) staticName.textContent = "Оператор";
-      }
+    if (tabUsersBtn) {
+      tabUsersBtn.classList.add("hidden");
+      tabUsersBtn.classList.remove("flex");
     }
-  } else {
-    // Not logged in
-    if (adminSwitcher) adminSwitcher.classList.add("hidden");
-    if (staticBadge) staticBadge.classList.add("hidden");
   }
+
   lucide.createIcons();
 }
 
@@ -352,6 +390,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       closeClusterDetailModal();
       closeArticleViewModal();
       closeArticleEditModal();
+      closeUserProfileModal();
+      closeUserAddEditModal();
     }
   });
 });
@@ -362,6 +402,10 @@ function switchTab(tab) {
     showToast("Доступ ограничен: для роли Оператор доступны только разделы Поиск и Статьи", "warning");
     return;
   }
+  if (tab === "users" && currentRole !== "admin") {
+    showToast("Доступ ограничен: раздел «Сотрудники» доступен только Администратору", "warning");
+    return;
+  }
   currentTab = tab;
 
   // Update dynamic browser tab title
@@ -369,7 +413,7 @@ function switchTab(tab) {
   document.title = `Helpix - ${pageTitle}`;
   
   // Hide all sections
-  ["search", "dashboard", "clusters", "articles", "logs"].forEach(t => {
+  ["search", "dashboard", "clusters", "articles", "logs", "users"].forEach(t => {
     const el = document.getElementById(`tab-${t}`);
     const btn = document.getElementById(`tab-btn-${t}`);
     if (el) el.classList.add("hidden");
@@ -395,6 +439,7 @@ function switchTab(tab) {
   if (tab === "clusters") loadClusters();
   if (tab === "articles") loadArticles();
   if (tab === "logs") loadSearchLogs();
+  if (tab === "users") loadUsersTable();
 
   lucide.createIcons();
 }
@@ -405,6 +450,7 @@ function applyRolePermissions(role) {
   const tabClusters = document.getElementById("tab-btn-clusters");
   const tabArticles = document.getElementById("tab-btn-articles");
   const tabLogs = document.getElementById("tab-btn-logs");
+  const tabUsers = document.getElementById("tab-btn-users");
   const createBtn = document.getElementById("createArticleBtn");
 
   if (role === "operator") {
@@ -413,9 +459,10 @@ function applyRolePermissions(role) {
     if (tabClusters) tabClusters.style.display = "none";
     if (tabArticles) tabArticles.style.display = "";
     if (tabLogs) tabLogs.style.display = "none";
+    if (tabUsers) tabUsers.style.display = "none";
     if (createBtn) createBtn.style.display = "none";
 
-    // Switch back to search if currently on protected tab (dashboard, clusters, logs)
+    // Switch back to search if currently on protected tab
     if (currentTab !== "search" && currentTab !== "articles") {
       switchTab("search");
     }
@@ -425,13 +472,19 @@ function applyRolePermissions(role) {
     if (tabClusters) tabClusters.style.display = "";
     if (tabArticles) tabArticles.style.display = "";
     if (tabLogs) tabLogs.style.display = "";
+    if (tabUsers) tabUsers.style.display = "none";
     if (createBtn) createBtn.style.display = "";
+
+    if (currentTab === "users") {
+      switchTab("search");
+    }
   } else if (role === "admin") {
     // Admin: full access
     if (tabDashboard) tabDashboard.style.display = "";
     if (tabClusters) tabClusters.style.display = "";
     if (tabArticles) tabArticles.style.display = "";
     if (tabLogs) tabLogs.style.display = "";
+    if (tabUsers) tabUsers.style.display = "";
     if (createBtn) createBtn.style.display = "";
   }
 
@@ -811,12 +864,14 @@ async function openArticleView(articleId) {
   const contentEl = document.getElementById("modalArticleContent");
   const createdAtEl = document.getElementById("modalArticleCreatedAt");
   const updatedAtEl = document.getElementById("modalArticleUpdatedAt");
+  const authorEl = document.getElementById("modalArticleAuthor");
   const btnGroup = document.getElementById("feedbackButtonsGroup");
 
   titleEl.textContent = "Загрузка...";
   contentEl.innerHTML = `<div class="py-8 text-center text-slate-400">Загрузка содержимого...</div>`;
   if (createdAtEl) createdAtEl.textContent = "—";
   if (updatedAtEl) updatedAtEl.textContent = "—";
+  if (authorEl) authorEl.textContent = "—";
   modal.classList.remove("hidden");
 
   // Show feedback rating bar ONLY if opened from Search tab
@@ -856,6 +911,13 @@ async function openArticleView(articleId) {
     catEl.textContent = article.category ? article.category.name : "Общее";
     if (createdAtEl) createdAtEl.textContent = formatClusterDate(article.created_at);
     if (updatedAtEl) updatedAtEl.textContent = formatClusterDate(article.updated_at || article.created_at);
+    if (authorEl) {
+      if (article.author_name) {
+        authorEl.textContent = `${article.author_name} (${article.author_position || 'Эксперт'})`;
+      } else {
+        authorEl.textContent = "Редакция базы знаний";
+      }
+    }
     
     // Parse markdown
     contentEl.innerHTML = marked.parse(article.content || "");
@@ -1740,7 +1802,7 @@ window.reset3dCamera = reset3dCamera;
 let currentArticleSort = { field: "id", order: "asc" };
 
 function updateArticleSortIcons() {
-  const fields = ["id", "title", "category", "views", "rating"];
+  const fields = ["id", "title", "category", "author", "views", "rating"];
   fields.forEach(f => {
     const el = document.getElementById(`sort-art-${f}`);
     if (!el) return;
@@ -1777,6 +1839,8 @@ function sortArticlesList(list) {
         return (a.title || "").localeCompare(b.title || "", "ru", { sensitivity: "base", numeric: true }) * factor;
       case "category":
         return (a.category_name || "—").localeCompare(b.category_name || "—", "ru", { sensitivity: "base", numeric: true }) * factor;
+      case "author":
+        return (a.author_name || "").localeCompare(b.author_name || "", "ru", { sensitivity: "base", numeric: true }) * factor;
       case "views":
         return ((Number(a.views_count) || 0) - (Number(b.views_count) || 0)) * factor;
       case "rating": {
@@ -1794,7 +1858,7 @@ function sortArticlesList(list) {
 
 async function loadArticles() {
   const tbody = document.getElementById("articlesTableBody");
-  tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400">Загрузка каталога статей...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">Загрузка каталога статей...</td></tr>`;
 
   try {
     const res = await apiFetch(`${API_BASE}/api/v1/articles?limit=500`);
@@ -1802,7 +1866,7 @@ async function loadArticles() {
     allArticlesList = await res.json();
     filterArticlesTable();
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-rose-600 text-xs">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-rose-600 text-xs">${err.message}</td></tr>`;
   }
 }
 
@@ -1814,7 +1878,7 @@ function renderArticlesTable(articles) {
   }
 
   if (articles.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400 text-xs">Статьи не найдены</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400 text-xs">Статьи не найдены</td></tr>`;
     return;
   }
 
@@ -1853,6 +1917,14 @@ function renderArticlesTable(articles) {
           ${escapeHtml(a.title)}
         </td>
         <td class="px-4 py-3 text-xs text-slate-500">${escapeHtml(a.category_name || "—")}</td>
+        <td class="px-4 py-3 text-xs text-slate-700 whitespace-nowrap" title="${escapeHtml(a.author_full_name || a.author_name || 'Не указан')} (${escapeHtml(a.author_position || 'Сотрудник')})">
+          <div class="flex items-center space-x-1.5">
+            <span class="w-5 h-5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+              ${getUserInitials(a.author_full_name || a.author_name)}
+            </span>
+            <span class="font-medium text-slate-800">${escapeHtml(a.author_name || "—")}</span>
+          </div>
+        </td>
         <td class="px-4 py-3 text-center text-xs font-semibold text-slate-600">${a.views_count}</td>
         <td class="px-4 py-3 text-center text-xs font-bold text-emerald-600">${rate}% 👍</td>
         <td class="px-4 py-3 text-center">
@@ -1997,7 +2069,7 @@ let allSearchLogsList = [];
 let currentLogsSort = { field: "id", order: "desc" };
 
 function updateLogsSortIcons() {
-  const fields = ["id", "query", "status", "target", "algorithm", "date"];
+  const fields = ["id", "query", "operator", "status", "target", "algorithm", "date"];
   fields.forEach(f => {
     const el = document.getElementById(`sort-log-${f}`);
     if (!el) return;
@@ -2032,6 +2104,8 @@ function sortLogsList(list) {
         return (Number(a.id) - Number(b.id)) * factor;
       case "query":
         return (a.query_text || "").localeCompare(b.query_text || "", "ru", { sensitivity: "base", numeric: true }) * factor;
+      case "operator":
+        return (a.operator_name || "").localeCompare(b.operator_name || "", "ru", { sensitivity: "base" }) * factor;
       case "status": {
         const valA = a.is_helpful === true ? "1_Успех" : "2_Пробел";
         const valB = b.is_helpful === true ? "1_Успех" : "2_Пробел";
@@ -2058,7 +2132,7 @@ function sortLogsList(list) {
 async function loadSearchLogs() {
   const tbody = document.getElementById("logsTableBody");
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">Загрузка журнала запросов...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">Загрузка журнала запросов...</td></tr>`;
 
   try {
     const res = await apiFetch(`${API_BASE}/api/v1/search/logs?limit=500`);
@@ -2083,7 +2157,7 @@ async function loadSearchLogs() {
 
     filterLogsTable();
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-rose-600">${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-rose-600">${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -2094,6 +2168,7 @@ function filterLogsTable() {
   let filtered = allSearchLogsList.filter(l => {
     const matchesQuery = !query || 
       (l.query_text && l.query_text.toLowerCase().includes(query)) || 
+      (l.operator_name && l.operator_name.toLowerCase().includes(query)) ||
       (l.clicked_article_title && l.clicked_article_title.toLowerCase().includes(query)) ||
       (l.cluster_title && l.cluster_title.toLowerCase().includes(query));
 
@@ -2118,7 +2193,7 @@ function renderLogsTable(logs) {
   }
 
   if (logs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">Запросы не найдены</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">Запросы не найдены</td></tr>`;
     return;
   }
 
@@ -2184,6 +2259,14 @@ function renderLogsTable(logs) {
       <tr class="hover:bg-slate-50/80 transition">
         <td class="px-4 py-2.5 font-medium text-slate-900 max-w-sm">
           «${escapeHtml(l.query_text)}»
+        </td>
+        <td class="px-4 py-2.5 text-slate-700 whitespace-nowrap" title="${escapeHtml(l.operator_full_name || l.operator_name || 'Оператор')} (${escapeHtml(l.operator_position || 'Сотрудник ТП')})">
+          <div class="flex items-center space-x-1.5">
+            <span class="w-5 h-5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+              ${getUserInitials(l.operator_full_name || l.operator_name)}
+            </span>
+            <span class="font-medium text-slate-800 text-xs">${escapeHtml(l.operator_name || "—")}</span>
+          </div>
         </td>
         <td class="px-4 py-2.5 text-center">${statusBadge}</td>
         <td class="px-4 py-2.5">${targetHtml}</td>
@@ -2266,4 +2349,526 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+// ==================== ЛИЧНЫЙ ПРОФИЛЬ СОТРУДНИКА ====================
+let userCurrentWorkStatus = localStorage.getItem("helpix_work_status") || "on_duty";
+
+async function openUserProfileModal() {
+  if (!currentUser) return;
+  const modal = document.getElementById("userProfileModal");
+  if (!modal) return;
+
+  // Header info
+  const avatarEl = document.getElementById("profAvatar");
+  const nameEl = document.getElementById("profFullName");
+  const roleBadgeEl = document.getElementById("profRoleBadge");
+  const posEl = document.getElementById("profPosition");
+  const deptEl = document.getElementById("profDepartment");
+
+  if (avatarEl) avatarEl.textContent = getUserInitials(currentUser.full_name, currentUser.username);
+  if (nameEl) nameEl.textContent = currentUser.full_name || currentUser.username;
+  if (posEl) posEl.textContent = currentUser.position || "Специалист службы поддержки";
+  if (deptEl) deptEl.textContent = currentUser.department || "Отдел технической поддержки";
+
+  if (roleBadgeEl) {
+    roleBadgeEl.textContent = ROLE_NAMES[currentUser.role] || currentUser.role;
+    if (currentUser.role === "admin") {
+      roleBadgeEl.className = "text-xs px-2.5 py-0.5 rounded-full font-semibold border bg-indigo-500/20 text-indigo-300 border-indigo-400/30";
+    } else if (currentUser.role === "moderator") {
+      roleBadgeEl.className = "text-xs px-2.5 py-0.5 rounded-full font-semibold border bg-amber-500/20 text-amber-300 border-amber-400/30";
+    } else {
+      roleBadgeEl.className = "text-xs px-2.5 py-0.5 rounded-full font-semibold border bg-sky-500/20 text-sky-300 border-sky-400/30";
+    }
+  }
+
+  // Personal info fields
+  const uEl = document.getElementById("profInfoUsername");
+  const emEl = document.getElementById("profInfoEmail");
+  const phEl = document.getElementById("profInfoPhone");
+  const crEl = document.getElementById("profInfoCreatedAt");
+
+  if (uEl) uEl.textContent = currentUser.username;
+  if (emEl) emEl.textContent = currentUser.email;
+  if (phEl) phEl.textContent = currentUser.phone || "—";
+  if (crEl) crEl.textContent = currentUser.created_at ? new Date(currentUser.created_at).toLocaleDateString("ru-RU") : "—";
+
+  // Pre-fill edit inputs
+  const editFn = document.getElementById("profEditFullName");
+  const editPh = document.getElementById("profEditPhone");
+  const editEm = document.getElementById("profEditEmail");
+  if (editFn) editFn.value = currentUser.full_name || "";
+  if (editPh) editPh.value = currentUser.phone || "";
+  if (editEm) editEm.value = currentUser.email || "";
+
+  // Set active tab to info
+  switchProfileTab("info");
+  updateUserWorkStatusUI();
+
+  // Load user activity & KPI stats
+  loadUserActivityStats();
+
+  modal.classList.remove("hidden");
+  lucide.createIcons();
+}
+
+function closeUserProfileModal() {
+  const modal = document.getElementById("userProfileModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function switchProfileTab(tab) {
+  const tabs = ["info", "history", "kpi"];
+  tabs.forEach(t => {
+    const el = document.getElementById(`prof-tab-${t}`);
+    const btn = document.getElementById(`prof-btn-${t}`);
+    if (el) {
+      if (t === tab) el.classList.remove("hidden");
+      else el.classList.add("hidden");
+    }
+    if (btn) {
+      if (t === tab) {
+        btn.className = "px-3 py-1.5 rounded-lg bg-white/20 text-white font-semibold transition";
+      } else {
+        btn.className = "px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition";
+      }
+    }
+  });
+  lucide.createIcons();
+}
+
+function setUserWorkStatus(status) {
+  userCurrentWorkStatus = status;
+  localStorage.setItem("helpix_work_status", status);
+  updateUserWorkStatusUI();
+  showToast(status === "on_duty" ? "Вы перешли в статус: На смене" : "Вы перешли в статус: Перерыв", "info");
+}
+
+function updateUserWorkStatusUI() {
+  const dot = document.getElementById("profOnlineDot");
+  const btnDuty = document.getElementById("btnStatusOnDuty");
+  const btnBreak = document.getElementById("btnStatusBreak");
+
+  if (dot) {
+    if (userCurrentWorkStatus === "on_duty") {
+      dot.className = "absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-slate-900 rounded-full";
+      dot.title = "Статус: На смене";
+    } else {
+      dot.className = "absolute -bottom-1 -right-1 w-4 h-4 bg-amber-500 border-2 border-slate-900 rounded-full";
+      dot.title = "Статус: Перерыв";
+    }
+  }
+
+  if (btnDuty && btnBreak) {
+    if (userCurrentWorkStatus === "on_duty") {
+      btnDuty.className = "px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 transition cursor-pointer";
+      btnBreak.className = "px-3 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition cursor-pointer";
+    } else {
+      btnDuty.className = "px-3 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition cursor-pointer";
+      btnBreak.className = "px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300 transition cursor-pointer";
+    }
+  }
+}
+
+async function handleUpdateProfileSubmit(event) {
+  event.preventDefault();
+  const fullName = document.getElementById("profEditFullName").value.trim();
+  const phone = document.getElementById("profEditPhone").value.trim();
+  const email = document.getElementById("profEditEmail").value.trim();
+
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/auth/me`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ full_name: fullName, phone: phone, email: email })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Ошибка обновления профиля");
+    }
+    currentUser = await res.json();
+    renderUserHeader();
+    
+    // Refresh modal header
+    const nameEl = document.getElementById("profFullName");
+    const avatarEl = document.getElementById("profAvatar");
+    if (nameEl) nameEl.textContent = currentUser.full_name;
+    if (avatarEl) avatarEl.textContent = getUserInitials(currentUser.full_name, currentUser.username);
+    
+    showToast("Личные данные успешно обновлены!", "success");
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+async function handleChangePasswordSubmit(event) {
+  event.preventDefault();
+  const curPwd = document.getElementById("profCurrentPwd").value;
+  const newPwd = document.getElementById("profNewPwd").value;
+
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/auth/change-password`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ current_password: curPwd, new_password: newPwd })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Ошибка смены пароля");
+    }
+    document.getElementById("profCurrentPwd").value = "";
+    document.getElementById("profNewPwd").value = "";
+    showToast("Пароль успешно изменен!", "success");
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+async function loadUserActivityStats() {
+  const kpiSearches = document.getElementById("profKpiTotalSearches");
+  const kpiSuccess = document.getElementById("profKpiSuccessRate");
+  const kpiArticles = document.getElementById("profKpiArticlesCreated");
+  const histContainer = document.getElementById("profHistoryContent");
+  const histBadge = document.getElementById("profHistoryCountBadge");
+
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/auth/me/activity`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    if (kpiSearches) kpiSearches.textContent = data.total_searches;
+    if (kpiSuccess) kpiSuccess.textContent = `${data.success_rate}%`;
+    if (kpiArticles) kpiArticles.textContent = data.articles_created;
+
+    if (histBadge) {
+      const totalActs = (data.recent_searches?.length || 0) + (data.recent_articles?.length || 0);
+      histBadge.textContent = `Записей: ${totalActs}`;
+    }
+
+    if (histContainer) {
+      let html = "";
+      if (data.recent_searches && data.recent_searches.length > 0) {
+        html += `<div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Поисковые сессии оператора:</div>`;
+        data.recent_searches.slice(0, 8).forEach(s => {
+          const statusIcon = s.is_helpful === true
+            ? `<span class="text-emerald-600 font-semibold text-[11px] flex items-center space-x-1 shrink-0"><i data-lucide="check" class="w-3 h-3"></i><span>Успех</span></span>`
+            : `<span class="text-rose-600 font-semibold text-[11px] flex items-center space-x-1 shrink-0"><i data-lucide="alert-circle" class="w-3 h-3"></i><span>Пробел</span></span>`;
+          const dStr = s.timestamp ? new Date(s.timestamp).toLocaleDateString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : "—";
+          html += `
+            <div class="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs hover:bg-slate-100 transition">
+              <div class="flex items-center space-x-2 min-w-0 mr-2">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i>
+                <span class="font-medium text-slate-800 truncate">«${escapeHtml(s.query_text)}»</span>
+              </div>
+              <div class="flex items-center space-x-3 shrink-0">
+                ${statusIcon}
+                <span class="text-slate-400 font-mono text-[10px]">${dStr}</span>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      if (data.recent_articles && data.recent_articles.length > 0) {
+        html += `<div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-3 mb-1">Статьи базы знаний:</div>`;
+        data.recent_articles.slice(0, 8).forEach(a => {
+          html += `
+            <div onclick="openArticleView(${a.id})" class="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs hover:bg-indigo-50 cursor-pointer transition">
+              <div class="flex items-center space-x-2 min-w-0 mr-2">
+                <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+                <span class="font-medium text-slate-800 truncate">${escapeHtml(a.title)}</span>
+              </div>
+              <div class="flex items-center space-x-2 text-[11px] text-slate-400 shrink-0">
+                <span>Просмотров: ${a.views_count}</span>
+                <span>•</span>
+                <span class="text-emerald-600">${a.helpful_count} 👍</span>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      if (!html) {
+        html = `<div class="text-center py-6 text-slate-400 text-xs">Активность за последнее время не зафиксирована</div>`;
+      }
+
+      histContainer.innerHTML = html;
+      lucide.createIcons();
+    }
+  } catch (err) {
+    console.error("Activity load error:", err);
+  }
+}
+
+// ==================== РЕЕСТР СОТРУДНИКОВ (УПРАВЛЕНИЕ ДЛЯ АДМИНИСТРАТОРА) ====================
+let allUsersList = [];
+
+async function loadUsersTable() {
+  const tbody = document.getElementById("usersTableBody");
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">Загрузка реестра сотрудников...</td></tr>`;
+
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/users?limit=200`);
+    if (!res.ok) throw new Error("Не удалось загрузить реестр сотрудников");
+    allUsersList = await res.json();
+
+    // Update KPI badges
+    const total = allUsersList.length;
+    const ops = allUsersList.filter(u => u.role === "operator").length;
+    const mods = allUsersList.filter(u => u.role === "moderator").length;
+    const admins = allUsersList.filter(u => u.role === "admin").length;
+
+    const elTotal = document.getElementById("users-kpi-total");
+    const elOps = document.getElementById("users-kpi-operators");
+    const elMods = document.getElementById("users-kpi-moderators");
+    const elAdmins = document.getElementById("users-kpi-admins");
+
+    if (elTotal) elTotal.textContent = total;
+    if (elOps) elOps.textContent = ops;
+    if (elMods) elMods.textContent = mods;
+    if (elAdmins) elAdmins.textContent = admins;
+
+    filterUsersTable();
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-rose-600">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+function filterUsersTable() {
+  const q = (document.getElementById("usersFilterInput")?.value || "").toLowerCase().trim();
+  const roleFilter = document.getElementById("usersRoleFilter")?.value || "all";
+
+  let filtered = allUsersList.filter(u => {
+    const matchesQ = !q ||
+      (u.full_name && u.full_name.toLowerCase().includes(q)) ||
+      (u.username && u.username.toLowerCase().includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q)) ||
+      (u.position && u.position.toLowerCase().includes(q)) ||
+      (u.department && u.department.toLowerCase().includes(q));
+
+    let matchesRole = true;
+    if (roleFilter !== "all") {
+      matchesRole = (u.role === roleFilter);
+    }
+
+    return matchesQ && matchesRole;
+  });
+
+  renderUsersTable(filtered);
+}
+
+function renderUsersTable(users) {
+  const tbody = document.getElementById("usersTableBody");
+  if (!tbody) return;
+
+  if (users.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">Сотрудники не найдены</td></tr>`;
+    return;
+  }
+
+  let html = "";
+  users.forEach(u => {
+    const initials = getUserInitials(u.full_name, u.username);
+    const shortName = formatShortName(u.full_name, u.username);
+
+    let roleBadge = "";
+    if (u.role === "admin") {
+      roleBadge = `<span class="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded font-semibold text-[11px]">Администратор</span>`;
+    } else if (u.role === "moderator") {
+      roleBadge = `<span class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded font-semibold text-[11px]">Модератор</span>`;
+    } else {
+      roleBadge = `<span class="px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-200 rounded font-semibold text-[11px]">Оператор</span>`;
+    }
+
+    const statusBadge = u.is_active
+      ? `<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+           <span>Активен</span>
+         </span>`
+      : `<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+           <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+           <span>Заблокирован</span>
+         </span>`;
+
+    html += `
+      <tr class="hover:bg-slate-50/80 transition">
+        <td class="px-4 py-3">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-xs flex items-center justify-center shrink-0">
+              ${initials}
+            </div>
+            <div>
+              <div class="font-bold text-slate-900">${escapeHtml(u.full_name || u.username)}</div>
+              <div class="text-[11px] text-slate-400 font-mono">@${escapeHtml(u.username)}</div>
+            </div>
+          </div>
+        </td>
+        <td class="px-4 py-3">
+          <div class="font-medium text-slate-800">${escapeHtml(u.position || "—")}</div>
+          <div class="text-[11px] text-slate-400">${escapeHtml(u.department || "—")}</div>
+        </td>
+        <td class="px-4 py-3 text-center">
+          ${roleBadge}
+        </td>
+        <td class="px-4 py-3">
+          <div class="text-slate-700 font-medium">${escapeHtml(u.email)}</div>
+          <div class="text-[11px] text-slate-400">Тел: ${escapeHtml(u.phone || "—")}</div>
+        </td>
+        <td class="px-4 py-3 text-center">
+          ${statusBadge}
+        </td>
+        <td class="px-4 py-3 text-center">
+          <div class="flex items-center justify-center space-x-1">
+            <button onclick="openEditUserModal(${u.id})" class="p-1.5 hover:bg-indigo-50 text-indigo-600 rounded-lg transition" title="Редактировать сотрудника">
+              <i data-lucide="edit" class="w-4 h-4"></i>
+            </button>
+            <button onclick="toggleUserActiveConfirm(${u.id}, ${u.is_active})" class="p-1.5 hover:bg-slate-100 text-slate-500 rounded-lg transition" title="${u.is_active ? 'Заблокировать сотрудника' : 'Разблокировать сотрудника'}">
+              <i data-lucide="${u.is_active ? 'user-x' : 'user-check'}" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = html;
+  lucide.createIcons();
+}
+
+function openAddUserModal() {
+  document.getElementById("userAddEditModalTitle").textContent = "Добавление нового сотрудника";
+  document.getElementById("editUserId").value = "";
+  document.getElementById("userFormFullName").value = "";
+  document.getElementById("userFormUsername").value = "";
+  document.getElementById("userFormEmail").value = "";
+  document.getElementById("userFormPosition").value = "";
+  document.getElementById("userFormDepartment").value = "";
+  document.getElementById("userFormPhone").value = "";
+  document.getElementById("userFormRole").value = "operator";
+  
+  const pwdInput = document.getElementById("userFormPassword");
+  pwdInput.value = "";
+  pwdInput.required = true;
+  document.getElementById("userFormPasswordLabel").textContent = "Пароль *";
+  document.getElementById("userFormPasswordHint").classList.add("hidden");
+
+  document.getElementById("userAddEditModal").classList.remove("hidden");
+  lucide.createIcons();
+}
+
+function openEditUserModal(userId) {
+  const user = allUsersList.find(u => u.id === userId);
+  if (!user) return;
+
+  document.getElementById("userAddEditModalTitle").textContent = "Редактирование сотрудника";
+  document.getElementById("editUserId").value = user.id;
+  document.getElementById("userFormFullName").value = user.full_name || "";
+  document.getElementById("userFormUsername").value = user.username || "";
+  document.getElementById("userFormEmail").value = user.email || "";
+  document.getElementById("userFormPosition").value = user.position || "";
+  document.getElementById("userFormDepartment").value = user.department || "";
+  document.getElementById("userFormPhone").value = user.phone || "";
+  document.getElementById("userFormRole").value = user.role || "operator";
+
+  const pwdInput = document.getElementById("userFormPassword");
+  pwdInput.value = "";
+  pwdInput.required = false;
+  document.getElementById("userFormPasswordLabel").textContent = "Новый пароль (опционально)";
+  document.getElementById("userFormPasswordHint").classList.remove("hidden");
+
+  document.getElementById("userAddEditModal").classList.remove("hidden");
+  lucide.createIcons();
+}
+
+function closeUserAddEditModal() {
+  document.getElementById("userAddEditModal").classList.add("hidden");
+}
+
+async function handleSaveUserSubmit(event) {
+  event.preventDefault();
+  const userId = document.getElementById("editUserId").value;
+  const fullName = document.getElementById("userFormFullName").value.trim();
+  const username = document.getElementById("userFormUsername").value.trim();
+  const email = document.getElementById("userFormEmail").value.trim();
+  const position = document.getElementById("userFormPosition").value.trim();
+  const department = document.getElementById("userFormDepartment").value.trim();
+  const phone = document.getElementById("userFormPhone").value.trim();
+  const role = document.getElementById("userFormRole").value;
+  const password = document.getElementById("userFormPassword").value;
+
+  const payload = {
+    full_name: fullName,
+    email: email,
+    position: position,
+    department: department,
+    phone: phone,
+    role: role
+  };
+  if (password) payload.password = password;
+
+  try {
+    if (userId) {
+      // Update existing user
+      const res = await apiFetch(`${API_BASE}/api/v1/users/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Ошибка обновления сотрудника");
+      }
+      showToast("Данные сотрудника успешно обновлены!", "success");
+      
+      // If current user updated themselves
+      if (currentUser && currentUser.id === parseInt(userId)) {
+        currentUser = await res.json();
+        renderUserHeader();
+      }
+    } else {
+      // Create new user
+      payload.username = username;
+      if (!password) throw new Error("Укажите пароль для нового сотрудника");
+      payload.password = password;
+
+      const res = await apiFetch(`${API_BASE}/api/v1/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Ошибка создания сотрудника");
+      }
+      showToast("Новый сотрудник успешно зарегистрирован!", "success");
+    }
+
+    closeUserAddEditModal();
+    loadUsersTable();
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+async function toggleUserActiveConfirm(userId, currentActive) {
+  const user = allUsersList.find(u => u.id === userId);
+  const actionText = currentActive ? "заблокировать" : "разблокировать";
+  if (!confirm(`Вы действительно хотите ${actionText} сотрудника ${user?.full_name || user?.username}?`)) return;
+
+  try {
+    const res = await apiFetch(`${API_BASE}/api/v1/users/${userId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: !currentActive })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Ошибка изменения статуса");
+    }
+    showToast(`Статус сотрудника успешно изменен!`, "info");
+    loadUsersTable();
+  } catch (err) {
+    showToast(err.message, "error");
+  }
 }

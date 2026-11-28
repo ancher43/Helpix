@@ -65,22 +65,35 @@
           <i data-lucide="list-checks" class="w-4 h-4"></i>
           <span>История запросов</span>
         </button>
+        <button onclick="switchTab('users')" id="tab-btn-users" class="nav-tab px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition hidden items-center space-x-1.5">
+          <i data-lucide="users" class="w-4 h-4"></i>
+          <span>Сотрудники</span>
+        </button>
       </nav>
 
-      <!-- Роль пользователя и выход -->
+      <!-- Роль пользователя, профиль и выход -->
       <div id="userHeaderSection" class="flex items-center space-x-2 sm:space-x-2.5">
-        <!-- Блок для Оператора и Модератора: только цветной бейдж роли в рамке -->
-        <div id="userStaticRoleBadge" class="hidden items-center space-x-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-xs">
-          <i id="userStaticRoleIcon" data-lucide="headphones" class="w-3.5 h-3.5"></i>
-          <span id="userStaticRoleName">Оператор</span>
-        </div>
-
-        <!-- Блок для Администратора: бейдж админа + выпадающий список для просмотра сайта от лица выбранной роли -->
-        <div id="adminRoleSwitcherContainer" class="hidden items-center space-x-2">
-          <span class="inline-flex items-center space-x-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold">
-            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-indigo-600"></i>
-            <span>Админ</span>
+        
+        <!-- Кнопка перехода в личный профиль (кликабельная Фамилия И.О. + аватарка) -->
+        <button onclick="openUserProfileModal()" id="userProfileHeaderBtn" class="hidden items-center space-x-2 py-1 px-2 hover:bg-slate-100 border border-slate-200/90 rounded-xl transition cursor-pointer select-none group shadow-2xs" title="Открыть профиль сотрудника">
+          <div id="userHeaderAvatar" class="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+            ??
+          </div>
+          <div class="text-left flex flex-col items-start leading-tight">
+            <span id="userHeaderShortName" class="text-xs font-bold text-slate-800 group-hover:text-indigo-600 transition">
+              Сотрудник
+            </span>
+            <span id="userHeaderRoleText" class="text-[10px] text-slate-400 font-medium">
+              Оператор
+            </span>
+          </div>
+          <span id="userHeaderRoleBadge" class="hidden text-[10px] font-semibold px-1.5 py-0.5 rounded-md border">
+            Оператор
           </span>
+        </button>
+
+        <!-- Блок для Администратора: выпадающий список для просмотра сайта от лица выбранной роли -->
+        <div id="adminRoleSwitcherContainer" class="hidden items-center">
           <div class="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200" title="Режим просмотра сайта от лица выбранной роли">
             <span class="text-xs text-slate-500 mr-2 ml-1.5 hidden sm:inline font-medium">Режим:</span>
             <select id="userRoleSelect" onchange="switchAdminViewingRole(this.value)" class="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
@@ -91,7 +104,7 @@
           </div>
         </div>
 
-        <!-- Кнопка выхода (без текстовой подписи имени/роли) -->
+        <!-- Кнопка выхода -->
         <div class="flex items-center pl-1 border-l border-slate-200">
           <button onclick="logoutUser()" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition flex items-center space-x-1" title="Выйти из учетной записи">
             <i data-lucide="log-out" class="w-4 h-4"></i>
@@ -446,6 +459,12 @@
                     <span id="sort-art-category" class="text-[11px] text-slate-300 font-mono">↕</span>
                   </div>
                 </th>
+                <th onclick="sortArticles('author')" class="px-4 py-3 cursor-pointer select-none hover:bg-slate-200/80 transition" title="Сортировать по автору">
+                  <div class="flex items-center space-x-1.5">
+                    <span>Автор</span>
+                    <span id="sort-art-author" class="text-[11px] text-slate-300 font-mono">↕</span>
+                  </div>
+                </th>
                 <th onclick="sortArticles('views')" class="px-4 py-3 cursor-pointer select-none hover:bg-slate-200/80 transition text-center" title="Сортировать по просмотрам">
                   <div class="flex items-center justify-center space-x-1.5">
                     <span>Просмотры</span>
@@ -570,6 +589,12 @@
                     <span id="sort-log-query" class="text-[11px] text-slate-300 font-mono">↕</span>
                   </div>
                 </th>
+                <th onclick="sortLogs('operator')" class="px-4 py-3 cursor-pointer select-none hover:bg-slate-200/80 transition" title="Сортировать по оператору">
+                  <div class="flex items-center space-x-1.5">
+                    <span>Оператор</span>
+                    <span id="sort-log-operator" class="text-[11px] text-slate-300 font-mono">↕</span>
+                  </div>
+                </th>
                 <th onclick="sortLogs('status')" class="px-4 py-3 cursor-pointer select-none hover:bg-slate-200/80 transition text-center" title="Сортировать по статусу">
                   <div class="flex items-center justify-center space-x-1.5">
                     <span>Статус</span>
@@ -604,6 +629,106 @@
         </div>
       </div>
     </section>
+
+    <!-- ==================== ВКЛАДКА 6: СОТРУДНИКИ (УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ ДЛЯ АДМИНИСТРАТОРА) ==================== -->
+    <section id="tab-users" class="hidden space-y-6">
+      
+      <!-- Карточки KPI сотрудников -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-4">
+          <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+            <i data-lucide="users" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs font-semibold text-slate-400">Всего сотрудников</div>
+            <div class="text-2xl font-bold text-slate-900" id="users-kpi-total">0</div>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-4">
+          <div class="p-3 bg-sky-50 text-sky-600 rounded-xl">
+            <i data-lucide="headphones" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs font-semibold text-slate-400">Операторы ТП</div>
+            <div class="text-2xl font-bold text-slate-900" id="users-kpi-operators">0</div>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-4">
+          <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
+            <i data-lucide="shield-check" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs font-semibold text-slate-400">Модераторы БЗ</div>
+            <div class="text-2xl font-bold text-slate-900" id="users-kpi-moderators">0</div>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-4">
+          <div class="p-3 bg-indigo-50 text-indigo-700 rounded-xl">
+            <i data-lucide="shield" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs font-semibold text-slate-400">Администраторы</div>
+            <div class="text-2xl font-bold text-slate-900" id="users-kpi-admins">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Таблица сотрудников -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="flex items-center space-x-3">
+            <div class="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+              <i data-lucide="user-check" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-900">Реестр сотрудников службы техподдержки</h3>
+              <p class="text-xs text-slate-500">Управление учетными записями, ролями и доступами</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2.5">
+            <div class="relative">
+              <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+              <input type="text" id="usersFilterInput" onkeyup="filterUsersTable()" placeholder="Поиск по ФИО, должности..." class="pl-9 pr-3 py-1.5 border border-slate-200 rounded-xl bg-slate-50 text-xs w-56 focus:outline-none focus:bg-white focus:ring-1 focus:ring-indigo-500">
+            </div>
+
+            <select id="usersRoleFilter" onchange="filterUsersTable()" class="border border-slate-200 rounded-xl px-2.5 py-1.5 bg-slate-50 text-xs text-slate-700 font-semibold focus:outline-none focus:bg-white">
+              <option value="all">Все роли</option>
+              <option value="operator">Операторы</option>
+              <option value="moderator">Модераторы</option>
+              <option value="admin">Администраторы</option>
+            </select>
+
+            <button onclick="openAddUserModal()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-xs transition cursor-pointer">
+              <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+              <span>Добавить сотрудника</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-600" id="usersTable">
+            <thead class="bg-slate-100 text-xs uppercase font-semibold text-slate-700">
+              <tr>
+                <th class="px-4 py-3">Сотрудник</th>
+                <th class="px-4 py-3">Должность и отдел</th>
+                <th class="px-4 py-3 text-center">Роль</th>
+                <th class="px-4 py-3">Контакты</th>
+                <th class="px-4 py-3 text-center">Статус</th>
+                <th class="px-4 py-3 text-center">Действия</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody" class="divide-y divide-slate-100 text-xs">
+              <!-- Заполнится динамически -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
   </main>
 
   <!-- ==================== МОДАЛЬНОЕ ОКНО: ПРОСМОТР СТАТЬИ И ОБРАТНАЯ СВЯЗЬ ==================== -->
@@ -616,6 +741,11 @@
           <div class="flex flex-wrap items-center gap-2.5 text-xs">
             <span id="modalArticleCategory" class="px-2.5 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-700 font-semibold rounded-md"></span>
             
+            <span class="inline-flex items-center text-slate-700 bg-slate-100/90 px-2.5 py-0.5 rounded-md border border-slate-200/80" title="Автор материала">
+              <i data-lucide="user" class="w-3.5 h-3.5 mr-1.5 text-indigo-500 shrink-0"></i>
+              <span>Автор: <strong id="modalArticleAuthor" class="font-semibold text-slate-800">—</strong></span>
+            </span>
+
             <span class="inline-flex items-center text-slate-500 bg-slate-100/80 px-2.5 py-0.5 rounded-md border border-slate-200/60" title="Дата добавления статьи">
               <i data-lucide="calendar" class="w-3.5 h-3.5 mr-1.5 text-slate-400 shrink-0"></i>
               <span>Добавлена: <strong id="modalArticleCreatedAt" class="font-medium text-slate-700">—</strong></span>
@@ -940,12 +1070,295 @@
     </div>
   </div>
 
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: ЛИЧНЫЙ ПРОФИЛЬ СОТРУДНИКА ==================== -->
+  <div id="userProfileModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
+    <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+      
+      <!-- Шапка модалки профиля -->
+      <div class="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white relative">
+        <button onclick="closeUserProfileModal()" class="absolute right-4 top-4 text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition" title="Закрыть">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+
+        <div class="flex items-center space-x-4">
+          <!-- Аватар с инициалами -->
+          <div class="relative">
+            <div id="profAvatar" class="w-16 h-16 rounded-2xl bg-indigo-600 text-white font-bold text-2xl flex items-center justify-center shadow-lg border-2 border-white/20">
+              ??
+            </div>
+            <span id="profOnlineDot" class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-slate-900 rounded-full" title="Статус: На смене"></span>
+          </div>
+
+          <div class="space-y-1 min-w-0 flex-1">
+            <div class="flex items-center space-x-2">
+              <h2 id="profFullName" class="text-xl font-bold text-white truncate">Фамилия Имя Отчество</h2>
+              <span id="profRoleBadge" class="text-xs px-2.5 py-0.5 rounded-full font-semibold border">Роль</span>
+            </div>
+            <p id="profPosition" class="text-xs text-indigo-200 truncate">Должность сотрудника</p>
+            <p id="profDepartment" class="text-[11px] text-slate-400 truncate">Отдел / Подразделение</p>
+          </div>
+        </div>
+
+        <!-- Навигационные вкладки внутри профиля -->
+        <div class="flex space-x-2 mt-6 pt-4 border-t border-white/10 text-xs font-medium">
+          <button onclick="switchProfileTab('info')" id="prof-btn-info" class="px-3 py-1.5 rounded-lg bg-white/20 text-white font-semibold transition">
+            Личные данные
+          </button>
+          <button onclick="switchProfileTab('history')" id="prof-btn-history" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition">
+            История работы
+          </button>
+          <button onclick="switchProfileTab('kpi')" id="prof-btn-kpi" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition">
+            Эффективность и KPI
+          </button>
+        </div>
+      </div>
+
+      <!-- Тело профиля -->
+      <div class="p-6 overflow-y-auto flex-1 space-y-6 text-sm">
+        
+        <!-- ВКЛАДКА 1: Личные данные -->
+        <div id="prof-tab-info" class="space-y-5">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Логин в системе</div>
+              <div id="profInfoUsername" class="text-sm font-bold text-slate-800 mt-0.5">—</div>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Корпоративный Email</div>
+              <div id="profInfoEmail" class="text-sm font-bold text-slate-800 mt-0.5 truncate">—</div>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Внутренний телефон</div>
+              <div id="profInfoPhone" class="text-sm font-bold text-slate-800 mt-0.5">—</div>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Дата регистрации</div>
+              <div id="profInfoCreatedAt" class="text-sm font-bold text-slate-800 mt-0.5">—</div>
+            </div>
+          </div>
+
+          <!-- Форма редактирования контактов -->
+          <div class="p-4 rounded-2xl border border-slate-200 space-y-3 bg-white">
+            <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
+              <i data-lucide="edit" class="w-3.5 h-3.5 text-indigo-600"></i>
+              <span>Редактирование личных данных</span>
+            </h4>
+            <form onsubmit="handleUpdateProfileSubmit(event)" class="space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">ФИО</label>
+                  <input type="text" id="profEditFullName" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500 focus:bg-white" required>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">Внутренний телефон</label>
+                  <input type="text" id="profEditPhone" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500 focus:bg-white" placeholder="Например: 312">
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Email</label>
+                <input type="email" id="profEditEmail" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500 focus:bg-white" required>
+              </div>
+              <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer">
+                Сохранить изменения
+              </button>
+            </form>
+          </div>
+
+          <!-- Смена пароля -->
+          <div class="p-4 rounded-2xl border border-slate-200 space-y-3 bg-white">
+            <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
+              <i data-lucide="lock" class="w-3.5 h-3.5 text-indigo-600"></i>
+              <span>Безопасность: Смена пароля</span>
+            </h4>
+            <form onsubmit="handleChangePasswordSubmit(event)" class="space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">Текущий пароль</label>
+                  <input type="password" id="profCurrentPwd" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500 focus:bg-white" required>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">Новый пароль</label>
+                  <input type="password" id="profNewPwd" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500 focus:bg-white" required>
+                </div>
+              </div>
+              <button type="submit" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition border border-slate-300 cursor-pointer">
+                Обновить пароль
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- ВКЛАДКА 2: История работы -->
+        <div id="prof-tab-history" class="hidden space-y-4">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider" id="profHistoryTitle">Последние действия сотрудника</h4>
+            <span id="profHistoryCountBadge" class="text-xs text-slate-400 font-medium"></span>
+          </div>
+          <div id="profHistoryContent" class="space-y-2">
+            <!-- Заполнится динамически -->
+          </div>
+        </div>
+
+        <!-- ВКЛАДКА 3: Эффективность и KPI -->
+        <div id="prof-tab-kpi" class="hidden space-y-5">
+          <!-- Статус смены -->
+          <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-slate-800">Рабочий статус сотрудника</div>
+              <div class="text-[11px] text-slate-500">Отображается в интерфейсе и фиксируется в логах</div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button type="button" onclick="setUserWorkStatus('on_duty')" id="btnStatusOnDuty" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 transition cursor-pointer">
+                🟢 На смене
+              </button>
+              <button type="button" onclick="setUserWorkStatus('break')" id="btnStatusBreak" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition cursor-pointer">
+                🟡 Перерыв
+              </button>
+            </div>
+          </div>
+
+          <!-- Метрики KPI -->
+          <div class="grid grid-cols-3 gap-3">
+            <div class="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl text-center">
+              <div class="text-2xl font-black text-indigo-700" id="profKpiTotalSearches">0</div>
+              <div class="text-[11px] text-indigo-900 font-semibold mt-0.5">Поисковых запросов</div>
+            </div>
+            <div class="p-4 bg-emerald-50/70 border border-emerald-100 rounded-2xl text-center">
+              <div class="text-2xl font-black text-emerald-700" id="profKpiSuccessRate">0%</div>
+              <div class="text-[11px] text-emerald-900 font-semibold mt-0.5">Индекс помощи (FCR)</div>
+            </div>
+            <div class="p-4 bg-amber-50/70 border border-amber-100 rounded-2xl text-center">
+              <div class="text-2xl font-black text-amber-700" id="profKpiArticlesCreated">0</div>
+              <div class="text-[11px] text-amber-900 font-semibold mt-0.5">Создано статей</div>
+            </div>
+          </div>
+
+          <!-- Бейджи достижений -->
+          <div class="space-y-3">
+            <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Корпоративные бейджи и достижения</h5>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="profBadgesContainer">
+              <div class="p-3 bg-white border border-slate-200 rounded-xl flex items-center space-x-3 shadow-2xs">
+                <div class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  <i data-lucide="zap" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-slate-800">Быстрый отклик</div>
+                  <div class="text-[10px] text-slate-400">Поиск решения до 10 сек</div>
+                </div>
+              </div>
+              <div class="p-3 bg-white border border-slate-200 rounded-xl flex items-center space-x-3 shadow-2xs">
+                <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                  <i data-lucide="shield-check" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-slate-800">Точность решений</div>
+                  <div class="text-[10px] text-slate-400">>70% успешных исходов</div>
+                </div>
+              </div>
+              <div class="p-3 bg-white border border-slate-200 rounded-xl flex items-center space-x-3 shadow-2xs">
+                <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                  <i data-lucide="book-open" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-slate-800">Вклад в базу знаний</div>
+                  <div class="text-[10px] text-slate-400">Актуализация инструкций</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Футер модалки -->
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
+        <button onclick="closeUserProfileModal()" class="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-xl text-xs transition cursor-pointer">
+          Закрыть
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: ДОБАВЛЕНИЕ / РЕДАКТИРОВАНИЕ СОТРУДНИКА ==================== -->
+  <div id="userAddEditModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <h3 id="userAddEditModalTitle" class="text-base font-bold text-slate-900">Добавление нового сотрудника</h3>
+        <button onclick="closeUserAddEditModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      
+      <form id="userAddEditForm" onsubmit="handleSaveUserSubmit(event)" class="p-6 space-y-4">
+        <input type="hidden" id="editUserId" value="">
+        
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">ФИО сотрудника *</label>
+          <input type="text" id="userFormFullName" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-indigo-500 focus:bg-white" placeholder="Иванов Денис Игоревич">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Логин *</label>
+            <input type="text" id="userFormUsername" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-indigo-500 focus:bg-white" placeholder="ivanov">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Email *</label>
+            <input type="email" id="userFormEmail" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-indigo-500 focus:bg-white" placeholder="ivanov@telecom.corp">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Должность</label>
+            <input type="text" id="userFormPosition" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-indigo-500 focus:bg-white" placeholder="Специалист 1-й линии">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Отдел</label>
+            <input type="text" id="userFormDepartment" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-indigo-500 focus:bg-white" placeholder="Отдел ШПД">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Внутренний телефон</label>
+            <input type="text" id="userFormPhone" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-indigo-500 focus:bg-white" placeholder="312">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Роль в системе *</label>
+            <select id="userFormRole" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-indigo-500 focus:bg-white font-medium">
+              <option value="operator">Оператор (поиск и решение проблем)</option>
+              <option value="moderator">Модератор (база знаний, кластеры)</option>
+              <option value="admin">Администратор (полный доступ)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1" id="userFormPasswordLabel">Пароль *</label>
+          <input type="password" id="userFormPassword" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-1 focus:ring-indigo-500 focus:bg-white" placeholder="Не менее 4 символов">
+          <p class="text-[11px] text-slate-400 mt-1 hidden" id="userFormPasswordHint">Оставьте пустым, если не хотите менять пароль</p>
+        </div>
+
+        <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeUserAddEditModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition cursor-pointer">
+            Отмена
+          </button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer">
+            Сохранить
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Футер -->
   <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400">
     Выпускная квалификационная работа • Черемисин А. А. • Группа: ИС-231
   </footer>
 
   <!-- Основной JS скрипт приложения -->
-  <script src="/app.js?v=20261126_1755"></script>
+  <script src="/app.js?v=20261128_2120"></script>
 </body>
 </html>

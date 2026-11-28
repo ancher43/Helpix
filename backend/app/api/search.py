@@ -8,6 +8,7 @@ from app.models.article import Article
 from app.models.search_log import SearchLog
 from app.models.cluster import SearchGapCluster
 from app.schemas.search import SearchRequest, SearchResponse, FeedbackRequest
+from app.schemas.user import format_short_name
 from app.services.hybrid_search import hybrid_search_service
 from app.services.embedding import embedding_service
 from app.api.deps import get_current_user, require_role
@@ -122,7 +123,7 @@ async def submit_search_feedback(
         )
         db.add(log)
     else:
-        if user and not log.operator_id:
+        if user:
             log.operator_id = user.id
         log.is_helpful = feedback.is_helpful
         log.clicked_article_id = feedback.clicked_article_id
@@ -163,10 +164,14 @@ async def list_search_logs(
         select(
             SearchLog,
             Article.title.label("article_title"),
-            SearchGapCluster.title.label("cluster_title")
+            SearchGapCluster.title.label("cluster_title"),
+            User.full_name.label("operator_full_name"),
+            User.username.label("operator_username"),
+            User.position.label("operator_position")
         )
         .outerjoin(Article, SearchLog.clicked_article_id == Article.id)
         .outerjoin(SearchGapCluster, SearchLog.cluster_id == SearchGapCluster.id)
+        .outerjoin(User, SearchLog.operator_id == User.id)
     )
     # Never return abandoned/empty queries that have no feedback and are not gaps
     from sqlalchemy import or_
@@ -192,6 +197,10 @@ async def list_search_logs(
             "clicked_article_title": row[1],
             "cluster_id": row[0].cluster_id,
             "cluster_title": row[2],
+            "operator_id": row[0].operator_id,
+            "operator_name": format_short_name(row[3], row[4] or "Оператор"),
+            "operator_full_name": row[3],
+            "operator_position": row[5],
             "timestamp": row[0].timestamp.isoformat() if row[0].timestamp else None
         }
         for row in rows

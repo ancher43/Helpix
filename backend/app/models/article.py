@@ -25,6 +25,7 @@ class Article(Base):
     
     category_id = Column(Integer, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
     created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     
     is_published = Column(Boolean, default=True, index=True)
     views_count = Column(Integer, default=0)
@@ -40,4 +41,5 @@ class Article(Base):
 
     # Relationships
     category = relationship("Category", back_populates="articles", lazy="selectin")
-    author = relationship("User", back_populates="articles")
+    author = relationship("User", foreign_keys=[created_by_id], back_populates="articles")
+    editor = relationship("User", foreign_keys=[updated_by_id])
